@@ -7,7 +7,8 @@ build/
 .idea/
 *.iml
 .vscode/
-out/
+# リポジトリ直下のIntelliJ既定出力先のみ対象（adapter.out.* パッケージのソースを誤って除外しないよう先頭を固定）
+/out/
 
 # Node / Next.js
 node_modules/
@@ -30,6 +31,10 @@ Thumbs.db
 coverage/
 test-results/
 playwright-report/
+*.tsbuildinfo
+
+# ローカル動作確認用の実行ログ（gradlew bootRun / npm run dev のリダイレクト先）
+/*-run.log
 
 # Terraform
 .terraform/

@@ -13,7 +13,7 @@
 |---|---|---|
 | 1 | Shared Kernel、Error、Clock、ID、Money | ✅ 完了 |
 | 2 | Project集約とDomain Unit Test | ✅ 完了 |
-| 3 | Project Repository / Flyway / API / 画面 | ✅ ほぼ完了（画面は検索のみ） |
+| 3 | Project Repository / Flyway / API / 画面 | ✅ 完了（SCR-010/011/020〜023を実機確認） |
 | 4 | Review集約と審査フロー | ✅ 完了 |
 | 5 | File / S3 Adapter | ✅ 完了 |
 | 6 | Funding / Payment の内部モデルと冪等性 | ✅ 完了 |
@@ -118,6 +118,14 @@
 
 - Next.js 16（App Router）の骨組み: `layout.tsx` / `page.tsx` / `globals.css`
 - **SCR-010 プロジェクト検索**（`projects/page.tsx`、Server Component + BFF fetch `lib/backend.ts`）
+- **SCR-011 プロジェクト詳細**（`projects/[projectId]/page.tsx`）
+- **SCR-020〜023 起案者画面一式**（`owner/projects/`）: 一覧・編集（新規作成共通）・プレビュー・
+  審査申請確認。React Hook Form + Zod、`useFieldArray`によるリターン可変長入力、
+  Server Actions（`actions.ts`）によるBFF越しのAPI呼出し、メイン画像アップロード
+  （SHA-256をブラウザで計算しAPI-FL-001/002を呼ぶ`MainImageUploader.tsx`）
+- Docker Compose（PostgreSQL 18 + Mailpit）＋ `gradlew bootRun --spring.profiles.active=local` ＋
+  `npm run dev` を実機起動し、作成→編集→プレビュー→審査申請確認までSSRページの実データ表示を確認済み
+  （§3.3参照）
 
 ### 2.11 その他
 
@@ -192,6 +200,27 @@
 
 ---
 
+## 3.3 解決済み: 公開プロジェクト検索（keyword未指定）が500になる
+
+フロントエンドSCR-020系画面（起案者一式）を実機で動かして初めて発覚した不具合。
+バックエンドの単体・結合テストは全て通過していたが、`GET /api/v1/projects`
+（keyword未指定＝SCR-010の既定表示）を一度も自動テストで呼んでいなかったため検出できていなかった。
+
+- 現象: `ERROR: operator does not exist: character varying ~~ bytea` でHTTP 500
+- 原因: `ProjectJpaRepository.searchPublished`のJPQL
+  `:keyword is null or p.title like concat('%', :keyword, '%')` で、keywordにnullを
+  bindするとHibernateがconcat内のパラメータ型を推論できずbyteaとみなす。PostgreSQLはSQL全体を
+  短絡評価前に型検査するため、`is null`分岐があっても`LIKE`側の型不一致でエラーになる
+- 対応: `ProjectPersistenceAdapter.searchPublished`でkeywordを常に非null（未指定時は空文字列）
+  で渡すよう変更し、JPQLの`is null`分岐を削除（`LIKE '%%'`は全件マッチするため挙動は変わらない）
+- 再発防止: `ProjectReviewFlowIntegrationTest`にkeyword未指定の検索テストを追加
+
+**教訓**: nullパラメータをJPQLの`LIKE`/`concat`へ渡す実装は、型推論に依存せず
+呼出し側で非null値（空文字列等）に正規化してから渡す。自動テストのカバレッジを見直す際は
+「クエリパラメータを省略した場合の既定動作」も対象に含めること。
+
+---
+
 ## 4. 残タスク（工程8以降）
 
 ### 4.1 実装順序 8: Notification / Refund / Batch
@@ -220,12 +249,10 @@
 
 ### 4.4 Frontend 残画面
 
-実装済みは SCR-010 のみ。基本設計 §5.2 の残り:
+実装済みは SCR-010/011/020〜023（Project一式、§2.10）。基本設計 §5.2 の残り:
 
 | 区分 | 画面 |
 |---|---|
-| 公開 | SCR-011 プロジェクト詳細（※SCR-010からリンク済みだが**ページ未実装**） |
-| OWNER | SCR-020 一覧 / SCR-021 編集 / SCR-022 プレビュー / SCR-023 審査申請確認 |
 | REVIEWER | SCR-030 審査一覧 / SCR-031 審査詳細 |
 | SUPPORTER | SCR-040 支援入力 / SCR-041 支援確認 / SCR-042 支援結果 / SCR-051 支援履歴 |
 | OPERATOR | SCR-060 支援管理 / SCR-061 返金管理 |

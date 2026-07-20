@@ -76,6 +76,48 @@ export interface ProjectDetailView {
   updatedAt: string;
 }
 
+export interface ProjectCreatedResponse {
+  projectId: string;
+  status: string;
+}
+
+export interface ProjectUpdatedResponse {
+  projectId: string;
+  status: string;
+  version: number;
+  updatedAt: string;
+}
+
+export interface SubmitReviewResponse {
+  reviewId: string;
+  projectStatus: string;
+  submittedAt: string;
+}
+
+export interface ProjectCancelledResponse {
+  projectId: string;
+  status: string;
+}
+
+export interface IssueUploadResponse {
+  fileId: string;
+  uploadUrl: string;
+  headers: Record<string, string>;
+  expiresAt: string;
+}
+
+export interface CompleteUploadResponse {
+  fileId: string;
+  status: string;
+  downloadReference: string;
+}
+
+/** DRAFT/RETURNEDのみ起案者が編集可能（基本設計 §3.2）。 */
+export const EDITABLE_PROJECT_STATUSES = new Set(["DRAFT", "RETURNED"]);
+
+/** SCR-023の必須確認事項（詳細設計 §5.2、UseCase側と一致させる）。 */
+export const REQUIRED_SUBMIT_CONFIRMATIONS = ["TERMS_ACCEPTED", "CONTENT_RESPONSIBILITY_ACCEPTED"] as const;
+
 export class BackendError extends Error {
   constructor(public readonly problem: ProblemDetails) {
     super(problem.detail ?? problem.title ?? "Backend error");

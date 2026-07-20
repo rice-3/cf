@@ -337,4 +337,13 @@ class ProjectReviewFlowIntegrationTest {
         )
         assertEquals(HttpStatus.OK, asOwner.statusCode)
     }
+
+    @Test
+    @Order(13)
+    fun `キーワード未指定の公開プロジェクト検索は200になる（API-PJ-001）`() {
+        // keywordパラメータを渡さない場合、JPQL側のnullパラメータ型推論起因で
+        // 「character varying ~~ bytea」エラーが発生していた回帰防止（フロントSCR-010の既定動作）。
+        val response = rest.getForEntity(url("/api/v1/projects?page=0&size=5"), Map::class.java)
+        assertEquals(HttpStatus.OK, response.statusCode, "body=${response.body}")
+    }
 }

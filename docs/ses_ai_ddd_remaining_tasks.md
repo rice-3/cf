@@ -13,7 +13,7 @@
 |---|---|---|
 | 1 | Shared Kernel、Error、Clock、ID、Money | ✅ 完了 |
 | 2 | Project集約とDomain Unit Test | ✅ 完了 |
-| 3 | Project Repository / Flyway / API / 画面 | ⚠️ API完了・画面はSCR-010のみ |
+| 3 | Project Repository / Flyway / API / 画面 | ✅ 完了（SCR-010/011/020〜023） |
 | 4 | Review集約と審査フロー | ✅ 完了 |
 | 5 | File / S3 Adapter | ✅ 完了 |
 | 6 | Funding / Payment の内部モデルと冪等性 | ✅ 完了 |
@@ -23,8 +23,9 @@
 | 10 | 監視、CI/CD、E2E、運用手順 | ⬜ 未着手 |
 
 バックエンドの業務フローは「起案 → 審査 → 公開 → 支援 → 決済 → 募集終了 → 返金 → 通知」まで
-一気通貫で動作する。管理系API（会員・ロール・監査）もAPI-US/AD/AU全系列が揃った。
-残るのはフロントエンド画面群とCI/CD・運用基盤（工程10）。
+一気通貫で動作する。管理系API（会員・ロール・監査）もAPI-US/AD/AU全系列が揃い、
+フロントエンドもProject関連一式（SCR-010/011/020〜023）が実機確認済み。
+残るのはREVIEWER/SUPPORTER/OPERATOR/ADMIN向け画面とCI/CD・運用基盤（工程10）。
 
 ---
 
@@ -83,22 +84,53 @@ ArchUnitへ `noCrossContextAdapterAccessFromIdentity` / `...FromAudit` を追加
 
 ---
 
-## 5. フロントエンド（優先度: 高、最も未着手）
+## 5. フロントエンド（優先度: 高）
 
-基本設計 §5.2 の19画面のうち**実装済みは SCR-010 プロジェクト検索の1画面のみ**。
+基本設計 §5.2 の19画面のうち**実装済みは SCR-010/011/020〜023 の6画面**（Project関連一式）。
 
-| 区分 | 未実装画面 |
+| 区分 | 状態 |
 |---|---|
-| 公開 | SCR-011 プロジェクト詳細（※SCR-010からリンク済みだが**ページ未実装＝404になる**） |
-| OWNER | SCR-020 一覧 / SCR-021 編集 / SCR-022 プレビュー / SCR-023 審査申請確認 |
-| REVIEWER | SCR-030 審査一覧 / SCR-031 審査詳細 |
-| SUPPORTER | SCR-040 支援入力 / SCR-041 支援確認 / SCR-042 支援結果 / SCR-051 支援履歴 |
-| OPERATOR | SCR-060 支援管理 / SCR-061 返金管理 |
-| ADMIN | SCR-070 会員・ロール管理 / SCR-071 監査ログ検索 |
-| 共通 | SCR-001 ログイン / SCR-002 アクセス拒否 / SCR-050 マイページ / SCR-080 システムエラー |
+| 公開 | ✅ SCR-010 プロジェクト検索 / ✅ SCR-011 プロジェクト詳細 |
+| OWNER | ✅ SCR-020 一覧 / ✅ SCR-021 編集（新規作成含む） / ✅ SCR-022 プレビュー / ✅ SCR-023 審査申請確認 |
+| REVIEWER | ⬜ SCR-030 審査一覧 / SCR-031 審査詳細 |
+| SUPPORTER | ⬜ SCR-040 支援入力 / SCR-041 支援確認 / SCR-042 支援結果 / SCR-051 支援履歴 |
+| OPERATOR | ⬜ SCR-060 支援管理 / SCR-061 返金管理 |
+| ADMIN | ⬜ SCR-070 会員・ロール管理 / SCR-071 監査ログ検索 |
+| 共通 | ⬜ SCR-001 ログイン / SCR-002 アクセス拒否 / SCR-050 マイページ / SCR-080 システムエラー |
 
-バックエンドAPIが揃っているため、SCR-011 / SCR-020〜023 / SCR-030〜031 / SCR-040〜042 / SCR-051 は
-すぐに着手できる。SCR-060/061（OPERATOR）は §2 の返金APIが前提。
+バックエンドAPIが揃っているため、SCR-030〜031 / SCR-040〜042 / SCR-051 はすぐに着手できる。
+SCR-060/061（OPERATOR）は §2 の返金APIが前提（実装済み）。
+
+### 5.1 実装済み画面の構成（Project一式）
+
+- `frontend/src/app/projects/page.tsx`（SCR-010）/ `projects/[projectId]/page.tsx`（SCR-011）
+- `frontend/src/app/owner/projects/page.tsx`（SCR-020）
+- `frontend/src/app/owner/projects/new/page.tsx`・`[projectId]/edit/page.tsx`（SCR-021、作成/更新共通の
+  `ProjectForm.tsx` をClient Componentとして共有。React Hook Form + Zod、`useFieldArray`でリターン可変長）
+- `frontend/src/app/owner/projects/MainImageUploader.tsx`（メイン画像アップロード。ブラウザでSHA-256計算→
+  API-FL-001発行→API-FL-002完了。local/testのS3スタブは発行時点で完了扱いのため実PUTは行わない仕様
+  — backendの結合テストと同じ挙動）
+- `frontend/src/app/owner/projects/[projectId]/preview/page.tsx`（SCR-022）
+- `frontend/src/app/owner/projects/[projectId]/submit-review/page.tsx` + `SubmitReviewForm.tsx`（SCR-023）
+- `frontend/src/app/owner/projects/actions.ts`（Server Actions。create/update/submitForReview/cancel/
+  issueUpload/completeUploadをBFF側で実行し、認証ヘッダーをブラウザへ渡さない §7.9）
+- 起案者向けの単体取得APIが無いため、詳細取得は所有者判定込みの`PublicProjectController`
+  （`GET /api/v1/projects/{id}`）を共用している
+
+### 5.2 実機確認で見つけたバックエンドの不具合（本作業で修正済み）
+
+`GET /api/v1/projects`（keyword未指定、すなわちSCR-010の既定表示）で
+`ERROR: operator does not exist: character varying ~~ bytea` が発生し500になっていた。
+
+- 原因: JPQLの`:keyword is null or p.title like concat('%', :keyword, '%')`で、keywordにnullを
+  bindするとHibernateがconcat内のパラメータ型を推論できずbyteaとみなし、PostgreSQLの型検査で失敗する
+  （SQLは短絡評価前に全体を型検査するため、`is null`分岐があっても影響を受ける）
+- 修正: keywordを常に非null（未指定時は空文字列）で渡すよう`ProjectPersistenceAdapter.searchPublished`
+  を変更し、JPQLの`is null`分岐を削除（`LIKE '%%'`は全件マッチするため動作は変わらない）
+- 既存の結合テストではこのAPIを一度も呼んでいなかったため検出できていなかった。
+  回帰防止として`ProjectReviewFlowIntegrationTest`にkeyword未指定の検索テストを追加した
+- **教訓**: バックエンドの単体・結合テストが全て通過していても、フロントエンドから実際に叩いて
+  初めて気づくクラスの不具合がある（本件はnullパラメータのSQL型推論というテストで書き漏らしやすい観点）
 
 ---
 

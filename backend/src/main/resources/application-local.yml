@@ -2,7 +2,8 @@
 # ここに記載してよいのはローカル開発専用の値のみ。dev以上はSecrets Manager/SSMで注入する（§11.4）。
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/cf_local
+    # ホストに既存のPostgreSQLサービスが5432を使用している場合があるため5433を使う（infra/docker-compose.yml）
+    url: jdbc:postgresql://localhost:5433/cf_local
     username: cf_app
     password: cf_local_password
     hikari:
