@@ -118,7 +118,7 @@ ArchUnitへ `noCrossContextAdapterAccessFromIdentity` / `...FromAudit` を追加
 
 ## 7. その他
 
-- [ ] **git初回コミットが未実施**（mainブランチにコミットが1件もない）— 早急に実施推奨
+- [x] git初回コミット・push実施済み（`https://github.com/rice-3/cf.git` の `main` ブランチ）
 - [ ] 設計書 `.docx` の再出力（`.md` は両書とも v1.2、`.docx` は v1.0 のまま）
 
 ---
