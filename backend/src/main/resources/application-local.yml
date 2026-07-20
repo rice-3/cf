@@ -1,0 +1,14 @@
+# localプロファイル: Docker Compose上のPostgreSQLへ接続（infra/docker-compose.yml）
+# ここに記載してよいのはローカル開発専用の値のみ。dev以上はSecrets Manager/SSMで注入する（§11.4）。
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/cf_local
+    username: cf_app
+    password: cf_local_password
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 3000
+
+cf:
+  seed:
+    dev-users: true # 開発用ユーザーを起動時に投入する（local限定）

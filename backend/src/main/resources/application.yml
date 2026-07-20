@@ -1,0 +1,74 @@
+spring:
+  application:
+    name: cf-api
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate # DDLはFlywayのみが管理する（基本設計 §7.1）
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+  # 日時はJackson 3の既定でISO 8601文字列として出力される（§6.1）
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # dev以上はCOGNITO_ISSUER（例: https://cognito-idp.{region}.amazonaws.com/{poolId}）を設定する（§13.1）。
+          # local/testはDevSecurityConfigを使うため未設定でも問題ない。
+          issuer-uri: ${COGNITO_ISSUER:}
+
+server:
+  port: 8080
+  shutdown: graceful # Graceful Shutdown（基本設計 §12.5）
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true # liveness/readiness分離（詳細設計 §13.3）
+
+logging:
+  pattern:
+    # 相関IDをログへ付与（基本設計 §6.4）
+    level: "%5p [%X{correlationId:-}]"
+
+cf:
+  file:
+    # dev以上はECS環境変数で上書きする（詳細設計 §13.1）
+    bucket: ${CF_FILE_BUCKET:cf-local-files}
+    key-prefix: ${CF_FILE_KEY_PREFIX:local}
+    upload-url-expiry-seconds: 300 # URL期限5分（§10.2）
+    pending-expiry-minutes: 30 # 未完了失効（BAT-008清掃対象）
+  outbox:
+    # BAT-006 Outbox配送（基本設計 §8.1。詳細設計 §9.1: 5秒〜1分周期、50件/Tx、最大5回再試行）
+    enabled: true
+    fixed-delay-ms: 5000
+    batch-size: 50
+    max-retry-count: 5
+  payment:
+    # dev以上はSecrets Managerから注入する（§11.4）。localの既定値は教育用の固定値。
+    webhook-secret: ${CF_PAYMENT_WEBHOOK_SECRET:local-sandbox-webhook-secret}
+    webhook-tolerance-seconds: 300 # 署名時刻の許容差5分（§6.8）
+  notification:
+    ses:
+      from-address: ${CF_SES_FROM_ADDRESS:no-reply@example.invalid}
+  batch:
+    # 定期バッチ（基本設計 §8.1）。周期・件数は同表に従う。
+    enabled: true
+    project-batch-size: 100
+    worker-batch-size: 50
+    file-cleanup-batch-size: 1000
+    audit-retention-days: 1095 # 監査ログ3年（基本設計 §7.7）
+    ai-activity-retention-days: 365 # AI利用記録1年
+    publish-interval-ms: 60000 # BAT-001 公開開始
+    close-funding-interval-ms: 60000 # BAT-002 募集終了
+    refund-interval-ms: 60000 # BAT-004 返金実行
+    notification-interval-ms: 60000 # BAT-005 通知送信
+    reconcile-interval-ms: 900000 # BAT-007 決済照合（15分）
+    file-cleanup-cron: "0 30 3 * * *" # BAT-008 ファイル清掃（日次）
+    audit-archive-cron: "0 0 4 1 * *" # BAT-009 監査アーカイブ（月次）

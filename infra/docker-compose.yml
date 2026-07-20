@@ -1,0 +1,31 @@
+name: cf-training
+
+services:
+  postgres:
+    image: postgres:18
+    container_name: cftraining-local-postgres
+    environment:
+      POSTGRES_DB: cf_local
+      POSTGRES_USER: cf_app
+      # ローカル専用の開発値。dev以上はSecrets Managerで管理する。
+      POSTGRES_PASSWORD: cf_local_password
+      TZ: UTC
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cf_app -d cf_local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: cftraining-local-mailpit
+    ports:
+      - "8025:8025"   # Web UI
+      - "1025:1025"   # SMTP
+
+volumes:
+  postgres-data:

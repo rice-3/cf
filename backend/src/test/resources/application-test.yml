@@ -1,0 +1,13 @@
+# testプロファイル（結合テスト）専用設定。
+#
+# BAT-006 Outbox配送のスケジュール起動を止める。
+# 有効のままだと5秒ごとの配送がテストの検証対象を裏で書き換えてしまい
+# （例: Payment=CREATED を検証する直前に PaymentRequested が配送されPROCESSINGになる）、
+# 実行タイミング次第で失敗する。配送そのものを検証するテストは
+# OutboxWorker.publishBatch() を明示的に呼び出す。
+cf:
+  outbox:
+    enabled: false
+  # 定期バッチも同じ理由で止める。バッチを検証するテストはUseCaseを直接呼び出す。
+  batch:
+    enabled: false
