@@ -61,10 +61,10 @@
     高深刻度のみブロック（現状0件で緑。ローカルTrivyでもexit 0確認）。
   - Trivy コンテナ: ベースイメージ（AL2023）のOS脆弱性はCVE公開で増減するためレポート方式を継続。
     是正はベースイメージ更新で行い、Code Scanningで追跡。
-- [ ] **CD** — `cd.yml` を作成（手動 `workflow_dispatch`、環境承認付き）。image build → ECR push →
-  ECS ローリング更新（`aws-actions/*`, OIDC）。**Terraform（§3.3）でECR/ECS/IAMロールを構築し、
-  リポジトリVariables（AWS_REGION等）を設定するまでは動作しない**（未設定時は早期失敗）。
-  AWS未提供のため実行検証は未実施。infra整備後に有効化する。
+- [x] **CD** — `cd.yml`（手動 `workflow_dispatch`、環境承認付き）。image build → ECR push →
+  ECS ローリング更新（`aws-actions/*`, OIDC）。前提の **Terraform（§3.3）を提供済み**（下記）。
+  残作業は「実AWSへ `terraform apply` → `terraform output` をGitHub Variablesへ設定」のみ。
+  AWS未提供のため実行（apply/deploy）検証は未実施。
 
 ### 2.2 運用者向け検索API + SCR-060/061 の一覧UI化
 
@@ -90,8 +90,12 @@
 
 ### 3.3 IaC（Terraform、ADR-007）
 
-- [ ] `infra/` は現状 docker-compose のみ。AWS構成（ECS Fargate / RDS / S3 / SQS / SES / Cognito /
-      CloudWatch）をTerraform化。
+- [x] **コアAWS構成のTerraform化** — `infra/terraform/`（VPC / サブネット / NAT / SG / ECR /
+      ALB / ECS Fargate / RDS PostgreSQL 18 / IAM(タスク実行・タスク) / GitHub OIDC + デプロイロール /
+      Secrets Manager / CloudWatch Logs）。CI（`terraform.yml`）で fmt / init / validate 済み。
+      `apply` はAWS認証が必要なため手動運用（`infra/terraform/README.md`）。CDの前提を満たす。
+- [ ] **未カバーのAWSリソース** — HTTPS(ACM) / S3ファイルバケット / SQS / SES ドメイン検証 /
+      Cognito User Pool / WAF / VPCエンドポイント。アプリDBユーザーのプロビジョニング。
 - [ ] **SESテンプレートのAWS登録** — 本文は `NotificationTemplateCatalog` を正として定義済み。
       `aws_sesv2_email_template` またはCLIで実登録する（テンプレートIDはカタログのキー）。
 

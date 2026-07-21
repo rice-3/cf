@@ -2,11 +2,11 @@ name: CD (deploy backend to ECS)
 
 # main反映後のデプロイ（詳細設計 §13.3、基本設計 §13.3）。
 #
-# 【前提（未整備 = 工程10 §3.3 Terraform）】本ワークフローは以下が揃って初めて動作する:
-#   - Terraformで ECR リポジトリ / ECS クラスタ・サービス・タスク定義を構築済み
-#   - GitHub OIDC と AWS IAM ロールの信頼関係
+# 【前提】本ワークフローは以下が揃って初めて動作する:
+#   - infra/terraform を apply して ECR / ECS / IAM(OIDC) を構築済み（§3.3、terraform定義は提供済み）
 #   - リポジトリ Variables: AWS_REGION / AWS_ROLE_ARN / ECR_REPOSITORY /
 #     ECS_CLUSTER / ECS_SERVICE / ECS_TASK_FAMILY / CONTAINER_NAME
+#     （値は `terraform output` に対応。infra/terraform/README.md 参照）
 #
 # 上記が未設定のうちは手動起動時に「Check configuration」で早期失敗する（push では起動しない）。
 # 自動デプロイではなく手動承認付き（environment）を基本とする（要件 C-17: AI単独の本番反映禁止）。

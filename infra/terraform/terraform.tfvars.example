@@ -1,0 +1,12 @@
+# terraform.tfvars のテンプレート。実際の値でコピーして使う。
+aws_region        = "ap-northeast-1"
+project           = "cftraining"
+environment       = "dev"
+github_repository = "rice-3/cf"
+
+# 任意（既定値あり）
+# vpc_cidr          = "10.20.0.0/16"
+# az_count          = 2
+# desired_count     = 2
+# db_instance_class = "db.t4g.micro"
+# cognito_issuer    = "https://cognito-idp.ap-northeast-1.amazonaws.com/xxxxx"
