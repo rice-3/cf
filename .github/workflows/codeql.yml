@@ -19,6 +19,10 @@ jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
+    env:
+      # 本プロジェクトはKotlin 2.4系（最新）で、CodeQLのKotlin抽出器が未対応の場合がある。
+      # 未対応バージョンでもベストエフォートで抽出させる公式フラグ（java-kotlinジョブのみ意味を持つ）。
+      CODEQL_EXTRACTOR_KOTLIN_ALLOW_UNSUPPORTED_VERSION: "true"
     strategy:
       fail-fast: false
       matrix:
