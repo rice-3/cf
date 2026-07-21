@@ -17,8 +17,11 @@ plugins {
 spotless {
     val ktlintOverrides = mapOf(
         "ktlint_code_style" to "intellij_idea",
-        // 日本語コメント行が長くなるため行長ルールは無効化。
+        // 行長は無制限にする。日本語コメントが長くなるうえ、max_line_lengthを基準に折り返す
+        // wrappingルールがJVM/環境で不安定な整形差を生むため、長さ基準の折返しを一律に止める。
+        "max_line_length" to "off",
         "ktlint_standard_max-line-length" to "disabled",
+        "ktlint_standard_binary-expression-wrapping" to "disabled",
         // ヘキサゴナルの adapter.in.* は `in`（Kotlin予約語）をバッククォート必須とするため誤検知する。
         "ktlint_standard_package-name" to "disabled",
         // 関連宣言を1ファイルにまとめる方針のため filename ルールは無効化。

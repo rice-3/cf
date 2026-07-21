@@ -11,8 +11,10 @@ trim_trailing_whitespace = true
 [*.{kt,kts}]
 # ktlintの整形スタイル。IntelliJ既定に近い intellij_idea を用いてchurnを抑える。
 ktlint_code_style = intellij_idea
-# 日本語コメント行が長くなるため行長ルールは無効化（意味のある折返しは手動で行う）。
+# 行長は無制限。長さ基準の折返しルールが環境差で不安定なため一律に無効化する。
+max_line_length = off
 ktlint_standard_max-line-length = disabled
+ktlint_standard_binary-expression-wrapping = disabled
 # ヘキサゴナルの adapter.in.* パッケージは `in`（Kotlin予約語）をバッククォート必須とするため、
 # package-name ルールが誤検知する。設計上の正当な命名なので無効化する。
 ktlint_standard_package-name = disabled
