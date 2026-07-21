@@ -56,6 +56,10 @@ dependencies {
     implementation("software.amazon.awssdk:s3")
     implementation("software.amazon.awssdk:sesv2")
 
+    // --- 分散ロック（バッチ多重起動防止, 基本設計 §8.3、ADR-0003） ---
+    implementation("net.javacrumbs.shedlock:shedlock-spring:7.7.0")
+    implementation("net.javacrumbs.shedlock:shedlock-provider-jdbc-template:7.7.0")
+
     // --- ID採番（ULID, 詳細設計 §3.3） ---
     implementation("com.github.f4b6a3:ulid-creator:5.2.3")
 

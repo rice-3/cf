@@ -186,7 +186,7 @@ ArchUnitへ `noCrossContextAdapterAccessFromIdentity` / `...FromAudit` を追加
 | 2 | ~~冪等記録の削除バッチの要否~~ → **解決済（BAT-010として実装）** | — |
 | 3 | 監査アーカイブ（BAT-009）の実出力先（S3バケット・ストレージクラス・保持年数） | 現在はハッシュ算出のみのローカル実装。`LocalAuditArchiveAdapter` に `TODO(question)` |
 | 4 | Outbox配送のSQS切替（現状は `InProcessOutboxDispatcher` によるアプリ内配送） | ADR候補。マルチインスタンス構成時に必要 |
-| 5 | バッチの分散ロック（基本設計 §8.3「分散ロックまたはDBロック」） | 現在は対象行の `FOR UPDATE SKIP LOCKED` のみで多重起動に対応。ShedLock相当の導入要否 |
+| 5 | ~~バッチの分散ロック~~ → **解決済（ADR-0003: ShedLock導入）** | BAT-001/002/004/005/007/008/009/010に`@SchedulerLock`。BAT-006 Outboxは競合コンシューマ設計のため意図的に除外 |
 | 6 | ADR-003（BFF配置）/ ADR-004（決済非同期UI）/ ADR-005（Rich Text形式）が未起票 | 該当機能の着手時に必要 |
 | 7 | 未登録Cognito Subjectの初回アクセス時JIT自動登録（既定ロールSUPPORTER）を許容するか | `CognitoJwtAuthenticationConverter` に `TODO(question)`。許容しない場合は管理者Invite方式へ変更 |
 

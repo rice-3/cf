@@ -4,6 +4,7 @@ import com.example.cf.notification.application.NotificationTransactionSteps
 import com.example.cf.notification.application.SendNotificationUseCase
 import com.example.cf.shared.batch.BatchProperties
 import com.example.cf.shared.batch.batchAuditContext
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -22,6 +23,7 @@ class NotificationSendBatch(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Scheduled(fixedDelayString = "\${cf.batch.notification-interval-ms:60000}")
+    @SchedulerLock(name = "BAT-005-notification", lockAtMostFor = "PT5M", lockAtLeastFor = "PT5S")
     fun send() {
         if (!properties.enabled) return
         runCatching { runBatch() }

@@ -5,6 +5,7 @@ import com.example.cf.payment.application.PaymentTransactionSteps
 import com.example.cf.payment.application.ReconcilePaymentUseCase
 import com.example.cf.shared.batch.BatchProperties
 import com.example.cf.shared.batch.batchAuditContext
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -24,6 +25,7 @@ class PaymentScheduledBatches(
 
     /** BAT-004 返金実行（1分ごと）。 */
     @Scheduled(fixedDelayString = "\${cf.batch.refund-interval-ms:60000}")
+    @SchedulerLock(name = "BAT-004-refund", lockAtMostFor = "PT5M", lockAtLeastFor = "PT5S")
     fun executeRefunds() {
         if (!properties.enabled) return
         runCatching { runRefundBatch() }
@@ -46,6 +48,7 @@ class PaymentScheduledBatches(
 
     /** BAT-007 決済照合（15分ごと）。結果不明の決済をProviderへ照会して確定させる。 */
     @Scheduled(fixedDelayString = "\${cf.batch.reconcile-interval-ms:900000}")
+    @SchedulerLock(name = "BAT-007-reconcile", lockAtMostFor = "PT10M", lockAtLeastFor = "PT10S")
     fun reconcilePayments() {
         if (!properties.enabled) return
         runCatching { reconcilePayment.executeBatch(properties.workerBatchSize, batchAuditContext()) }

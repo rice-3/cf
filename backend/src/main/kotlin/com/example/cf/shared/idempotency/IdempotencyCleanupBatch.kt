@@ -1,6 +1,7 @@
 package com.example.cf.shared.idempotency
 
 import com.example.cf.shared.batch.BatchProperties
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -20,6 +21,7 @@ class IdempotencyCleanupBatch(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Scheduled(cron = "\${cf.batch.idempotency-cleanup-cron:0 15 3 * * *}")
+    @SchedulerLock(name = "BAT-010-idempotency-cleanup", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     fun cleanup() {
         if (!properties.enabled) return
         runCatching {

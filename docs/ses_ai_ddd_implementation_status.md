@@ -258,6 +258,20 @@ frontendの画面確認後、GitHubリポジトリの内容を検証して発覚
 
 ---
 
+## 3.6 バッチ多重起動防止（ShedLock、ADR-0003、2026-07-21）
+
+- 基本設計 §8.3「分散ロックまたはDBロック」に対応。ShedLock（`shedlock`テーブル + `@SchedulerLock`）を導入。
+- 対象: BAT-001/002/004/005/007/008/009/010。**BAT-006 Outbox配送は除外**（競合コンシューマ設計で
+  並列配送が望ましく、`FOR UPDATE SKIP LOCKED`で二重配送を防止済みのため）。
+- `SchedulingConfig`（`@Profile("!test")`）で `@EnableScheduling` + `@EnableSchedulerLock` +
+  `JdbcTemplateLockProvider(usingDbTime())`。testプロファイルはスケジューリング無効（結合テストは
+  バッチを直接呼ぶ）。
+- Flyway `V202607200009__create_shedlock_table.sql`。
+- テスト: `ShedLockConfigIntegrationTest`（同名ロックの排他・shedlock行記録・解放後再取得）。
+  実機（local）で BAT-001/002/004/005/007 のロック行記録・BAT-006 非記録を確認。
+
+---
+
 ## 4. 残タスク（工程8以降）
 
 ### 4.1 実装順序 8: Notification / Refund / Batch

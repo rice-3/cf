@@ -3,6 +3,7 @@ package com.example.cf.file.adapter.`in`.batch
 import com.example.cf.file.application.FileCleanupUseCase
 import com.example.cf.shared.batch.BatchProperties
 import com.example.cf.shared.batch.batchAuditContext
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -20,6 +21,7 @@ class FileCleanupBatch(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Scheduled(cron = "\${cf.batch.file-cleanup-cron:0 30 3 * * *}")
+    @SchedulerLock(name = "BAT-008-file-cleanup", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     fun cleanup() {
         if (!properties.enabled) return
         runCatching { fileCleanup.execute(properties.fileCleanupBatchSize, batchAuditContext()) }

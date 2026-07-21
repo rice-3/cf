@@ -2,6 +2,7 @@ package com.example.cf.audit.adapter.in.batch;
 
 import com.example.cf.audit.application.AuditArchivePort;
 import com.example.cf.shared.batch.BatchProperties;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -44,6 +45,7 @@ public class AuditArchiveBatch {
     }
 
     @Scheduled(cron = "${cf.batch.audit-archive-cron:0 0 4 1 * *}")
+    @SchedulerLock(name = "BAT-009-audit-archive", lockAtMostFor = "PT1H", lockAtLeastFor = "PT1M")
     public void archive() {
         if (!properties.getEnabled()) {
             return;
