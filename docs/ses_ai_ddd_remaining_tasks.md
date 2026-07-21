@@ -46,8 +46,14 @@
   脆弱性はSARIFでCode Scanningへ、ライセンスはログにテーブル出力（いずれも非ブロッキング）。
 - [x] **コンテナscan** — `backend/Dockerfile`（マルチステージ、Corretto 25、非root）を追加し、
   `security-scan.yml` の `container` ジョブでイメージをビルド→Trivy image スキャン→SARIF報告。
-- [ ] **OpenAPI互換チェック** — `openapi.yaml` の生成/コミット運用が未整備のため未対応。
-  springdoc等でのspec生成（§6.15 のDTO生成運用）とセットで別途対応。
+- [x] **OpenAPI互換チェック** — springdoc 3.0.3（Boot 4対応）でコードからspec生成し、
+  `docs/api/openapi.yaml` へコミット。生成は決定論的（`OpenApiConfig` でinfo/servers固定、
+  `springdoc.writer-with-order-by-keys=true` でキーソート）。
+  - 鮮度ゲート: `OpenApiSpecIntegrationTest`（`gradlew build`）が実仕様とコミットspecの一致を検証。
+    API変更時にspec未更新なら失敗する（更新手順はテストのKDoc参照）。
+  - 互換ゲート: `openapi.yml` が oasdiff で base→現在のspecを比較し、破壊的変更（`--fail-on ERR`）で失敗。
+  - `/v3/api-docs.yaml` を公開（SecurityConfigで許可）。本番で隠す場合は `springdoc.api-docs.enabled=false`。
+  - [ ] contract-first のDTO自動生成（§6.15）は未対応（現状は code-first + spec生成）。UI（swagger-ui）も未導入。
 - [ ] **スキャンのゲート化** — Trivy/Semgrepは現状レポート方式（`exit-code 0`）。既存findings棚卸し後に
   重大度しきい値でCIブロックへ切替可能。
 - [ ] **CD** — main反映後の image build → ECR push → ECS デプロイ（Terraform 前提、§3.3と連動）

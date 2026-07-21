@@ -18,6 +18,13 @@ spring:
           # local/testはDevSecurityConfigを使うため未設定でも問題ない。
           issuer-uri: ${COGNITO_ISSUER:}
 
+# OpenAPI仕様（springdoc、§6.15）。生成specを決定論的にするためキー順を安定化する。
+# 本番で公開したくない場合は api-docs.enabled=false（SecurityConfigの許可も無効化される）。
+springdoc:
+  writer-with-order-by-keys: true
+  api-docs:
+    enabled: true
+
 server:
   port: 8080
   shutdown: graceful # Graceful Shutdown（基本設計 §12.5）

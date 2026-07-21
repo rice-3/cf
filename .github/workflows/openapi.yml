@@ -1,0 +1,56 @@
+name: OpenAPI compatibility
+
+# OpenAPI仕様の破壊的変更チェック（詳細設計 §6.15/§13.4）。
+# コミット済み docs/api/openapi.yaml を「変更前（base）」と「変更後（現在）」で比較し、
+# 破壊的変更（既存クライアントを壊す変更）があれば失敗させる。
+#
+# specがコードと一致していること自体は backend の OpenApiSpecIntegrationTest（gradlew build）で担保する。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  breaking-change:
+    name: Detect breaking API changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 比較のため履歴を取得
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Install oasdiff
+        run: go install github.com/oasdiff/oasdiff@latest
+
+      - name: Determine base ref
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ref=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compare against base spec
+        run: |
+          SPEC=docs/api/openapi.yaml
+          BASE_REF='${{ steps.base.outputs.ref }}'
+          if [ -z "$BASE_REF" ] || [ "$BASE_REF" = "0000000000000000000000000000000000000000" ]; then
+            echo "No base ref to compare; skipping."
+            exit 0
+          fi
+          if git show "$BASE_REF:$SPEC" > /tmp/base-openapi.yaml 2>/dev/null; then
+            echo "Comparing $BASE_REF:$SPEC -> $SPEC"
+            oasdiff breaking /tmp/base-openapi.yaml "$SPEC" --fail-on ERR
+          else
+            echo "Base spec not present at $BASE_REF; skipping (first introduction)."
+          fi

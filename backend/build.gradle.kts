@@ -88,6 +88,9 @@ dependencies {
     implementation("net.javacrumbs.shedlock:shedlock-spring:7.7.0")
     implementation("net.javacrumbs.shedlock:shedlock-provider-jdbc-template:7.7.0")
 
+    // --- OpenAPI仕様の生成（コードからspec生成、詳細設計 §6.15/§13.4）。springdoc 3.x は Spring Boot 4対応 ---
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.0.3")
+
     // --- ID採番（ULID, 詳細設計 §3.3） ---
     implementation("com.github.f4b6a3:ulid-creator:5.2.3")
 

@@ -68,6 +68,8 @@ private fun HttpSecurity.applyCommonRules(): HttpSecurity = this
         auth
             .requestMatchers(HttpMethod.GET, "/api/v1/projects", "/api/v1/projects/*").permitAll()
             .requestMatchers("/actuator/health/**", "/actuator/health").permitAll()
+            // OpenAPI仕様（springdoc）。本番で公開したくない場合は springdoc.api-docs.enabled=false で無効化する。
+            .requestMatchers("/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
             // エラー応答の内部ディスパッチ。認証必須にするとProblem Detailsの本文が失われる（§6.3）
             .requestMatchers("/error").permitAll()
             // Webhookの認証はProvider署名検証で行う（詳細設計 §6.8）。署名不正は401。
