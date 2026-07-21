@@ -79,6 +79,8 @@ class BatchFlowIntegrationTest {
 
     @Autowired lateinit var fileCleanup: FileCleanupUseCase
 
+    @Autowired lateinit var idempotencyCleanup: com.example.cf.shared.idempotency.IdempotencyCleanupUseCase
+
     private val rest = RestTemplate(JdkClientHttpRequestFactory()).apply {
         errorHandler = object : DefaultResponseErrorHandler() {
             override fun hasError(response: ClientHttpResponse): Boolean = false
@@ -328,6 +330,59 @@ class BatchFlowIntegrationTest {
             jdbcTemplate.queryForObject(
                 "select status from file_object where file_id = ?", String::class.java, staleFileId,
             ),
+        )
+    }
+
+    @Test
+    @Order(9)
+    fun `不成立時に起案者へProjectFailed通知が登録される（ADR-0002）`() {
+        // Order3でProjectFailedが発行され、Order4以降のpublishBatchでNotificationEventHandlerへ配送済み
+        val count = jdbcTemplate.queryForObject(
+            "select count(*) from notification where template_id = 'PROJECT_FAILED' and recipient_user_id = ?",
+            Int::class.java, DevUserSeeder.DEV_OWNER_ID,
+        ) ?: 0
+        assertEquals(1, count, "起案者向けPROJECT_FAILED通知が1件登録されること")
+    }
+
+    @Test
+    @Order(10)
+    fun `BAT-010が失効した冪等記録のみを削除する`() {
+        val now = Instant.now()
+        // 失効済み1件・有効1件を投入
+        jdbcTemplate.update(
+            """
+            insert into idempotency_record
+                (scope, actor_id, idempotency_key, request_hash, status, expires_at, created_at)
+            values ('TEST', 'actor', 'expired-key', 'h', 'COMPLETED', ?, ?)
+            """.trimIndent(),
+            Timestamp.from(now.minus(1, ChronoUnit.HOURS)), Timestamp.from(now.minus(25, ChronoUnit.HOURS)),
+        )
+        jdbcTemplate.update(
+            """
+            insert into idempotency_record
+                (scope, actor_id, idempotency_key, request_hash, status, expires_at, created_at)
+            values ('TEST', 'actor', 'valid-key', 'h', 'COMPLETED', ?, ?)
+            """.trimIndent(),
+            Timestamp.from(now.plus(1, ChronoUnit.HOURS)), Timestamp.from(now),
+        )
+
+        val deleted = idempotencyCleanup.execute(10_000)
+        assertTrue(deleted >= 1, "BAT-010が失効記録を削除すること: $deleted")
+        assertEquals(
+            0,
+            jdbcTemplate.queryForObject(
+                "select count(*) from idempotency_record where scope = 'TEST' and idempotency_key = 'expired-key'",
+                Int::class.java,
+            ),
+            "失効記録は削除される",
+        )
+        assertEquals(
+            1,
+            jdbcTemplate.queryForObject(
+                "select count(*) from idempotency_record where scope = 'TEST' and idempotency_key = 'valid-key'",
+                Int::class.java,
+            ),
+            "有効な記録は残る",
         )
     }
 }

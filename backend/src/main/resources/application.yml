@@ -63,6 +63,7 @@ cf:
     project-batch-size: 100
     worker-batch-size: 50
     file-cleanup-batch-size: 1000
+    idempotency-cleanup-batch-size: 10000 # BAT-010 冪等記録削除（詳細設計 §9: 10,000件/Tx）
     audit-retention-days: 1095 # 監査ログ3年（基本設計 §7.7）
     ai-activity-retention-days: 365 # AI利用記録1年
     publish-interval-ms: 60000 # BAT-001 公開開始
@@ -72,3 +73,4 @@ cf:
     reconcile-interval-ms: 900000 # BAT-007 決済照合（15分）
     file-cleanup-cron: "0 30 3 * * *" # BAT-008 ファイル清掃（日次）
     audit-archive-cron: "0 0 4 1 * *" # BAT-009 監査アーカイブ（月次）
+    idempotency-cleanup-cron: "0 15 3 * * *" # BAT-010 冪等記録削除（日次）

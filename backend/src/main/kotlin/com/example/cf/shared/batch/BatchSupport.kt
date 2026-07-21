@@ -19,6 +19,8 @@ data class BatchProperties(
     val workerBatchSize: Int = 50,
     /** BAT-008 ファイル清掃の1回あたり件数（詳細設計 §9: 1000件/回）。 */
     val fileCleanupBatchSize: Int = 1000,
+    /** BAT-010 冪等記録削除の1回あたり件数（詳細設計 §9: 10,000件/Tx）。 */
+    val idempotencyCleanupBatchSize: Int = 10_000,
     /** 監査ログの保持期間（基本設計 §7.7: 3年）。 */
     val auditRetentionDays: Long = 365 * 3,
     /** AI利用記録の保持期間（基本設計 §7.7: 1年）。 */

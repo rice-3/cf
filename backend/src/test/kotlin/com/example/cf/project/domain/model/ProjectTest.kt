@@ -174,12 +174,15 @@ class ProjectTest : FunSpec({
         }
 
         test("All-or-Nothing: 目標到達でSUCCEEDEDとProjectSucceeded") {
-            val project = publishedProjectEndingAt(NOW.minusSeconds(1))
+            val owner = Fixtures.userId()
+            val project = publishedProjectEndingAt(NOW.minusSeconds(1), owner = owner)
             val event = project.closeFunding(NOW, Money.of(500_000))
             project.status shouldBe ProjectStatus.SUCCEEDED
             event.shouldBeInstanceOf<ProjectSucceeded>()
             event.eventType shouldBe "ProjectSucceeded"
             event.raisedAmount shouldBe 500_000
+            // 起案者向け通知の宛先解決のためownerUserIdを保持する（ADR-0002）
+            event.ownerUserId shouldBe owner
         }
 
         test("All-or-Nothing: 目標未達でFAILEDとProjectFailed") {
@@ -239,7 +242,9 @@ class ProjectTest : FunSpec({
 private fun publishedProjectEndingAt(
     end: Instant,
     fundingType: FundingType = FundingType.ALL_OR_NOTHING,
+    owner: com.example.cf.shared.kernel.id.UserId = Fixtures.userId(),
 ) = Fixtures.draftProject(
+    owner = owner,
     status = ProjectStatus.PUBLISHED,
     fundingCondition = Fixtures.fundingCondition(
         fundingType = fundingType,

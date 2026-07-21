@@ -22,7 +22,7 @@
 | 5 | File / S3 Adapter | ✅ 完了 |
 | 6 | Funding / Payment の内部モデルと冪等性 | ✅ 完了 |
 | 7 | Payment Sandbox / Webhook / Outbox配送 | ✅ 完了 |
-| 8 | Notification / Refund / Batch | ✅ 完了（起案者向け通知の宛先解決のみ要判断） |
+| 8 | Notification / Refund / Batch | ✅ 完了（起案者向け通知・SESテンプレート・冪等削除バッチも実装） |
 | 9 | Identity / Admin / Audit | ✅ 完了（Cognito連携はJIT自動登録の要判断あり） |
 | 10 | 監視、CI/CD、E2E、運用手順 | ⬜ 未着手 |
 
@@ -33,19 +33,25 @@
 
 ---
 
-## 2. 工程8の残り（優先度: 高）
+## 2. 工程8の残り（完了）
 
-バッチ8本、Refund / Notification 集約、運用操作API（API-RF-001 / RF-002 / PY-002）は実装済み。
-残りは以下のみ。
+バッチ8本、Refund / Notification 集約、運用操作API（API-RF-001 / RF-002 / PY-002）に加え、
+残っていた以下3件も2026-07-21に完了。
 
-- [ ] 起案者向け通知の宛先解決
-  - 現在の通知は支援者向け3種のみ（SUPPORT_CONFIRMED / SUPPORT_PAYMENT_FAILED / REFUND_COMPLETED）
-  - ProjectApproved / ProjectReturned / ProjectPublished 等はイベントpayloadに起案者UserIdがなく宛先を解決できない
-  - **要判断**: イベントへ `ownerUserId` を追加するか、Projectの公開契約に所有者参照を追加するか
-  - `NotificationEventHandler` に `TODO(question)` を記載済み
-- [ ] SESテンプレートの実登録（テンプレートIDのみ定義済み。本文はSES側で管理）
-- [ ] 冪等記録の削除バッチ（詳細設計 §9 BAT-008相当）
-  - 基本設計 §8.1 に該当項目がないため**要確認**。`idempotency_record` は24時間で失効するが物理削除されない
+- [x] **起案者向け通知の宛先解決** — イベントに `ownerUserId` を追加（ADR-0002採用）。
+  ProjectApproved / ProjectReturned / ProjectRejected / ProjectPublished / ProjectSucceeded /
+  ProjectFailed に `ownerUserId` を持たせ、`NotificationEventHandler` が宛先種別（OWNER/SUPPORTER）
+  ごとに解決する。起案者向けテンプレート6種（PROJECT_APPROVED/RETURNED/REJECTED/PUBLISHED/
+  SUCCEEDED/FAILED）を購読追加。
+- [x] **SESテンプレート本文の定義** — `NotificationTemplateCatalog` に件名・本文を一元定義（`{{key}}`
+  プレースホルダ、§10.3準拠で個人情報を含めない）。local/testは `MockNotificationSender` が本カタログで
+  レンダリングしてログ出力。dev以上のSES登録は本カタログを正とし、Terraform（`aws_sesv2_email_template`）
+  またはCLIで反映する（**Terraform反映自体は工程10の残タスク §4.1**）。
+- [x] **冪等記録の削除バッチ（BAT-010）** — `IdempotencyPort.deleteExpired` + `IdempotencyCleanupBatch`
+  （日次 `0 15 3 * * *`、1回最大10,000件）。失効後は再実行が許可されるため物理削除は安全。
+  基本設計 §8.1 に項目が無いための追加（詳細設計 §9 BAT-008相当、番号衝突を避けBAT-010とした）。
+
+いずれも `ProjectTest` / `BatchFlowIntegrationTest` に検証を追加し、全テスト通過を確認済み。
 
 ---
 
@@ -176,8 +182,8 @@ ArchUnitへ `noCrossContextAdapterAccessFromIdentity` / `...FromAudit` を追加
 
 | # | 内容 | 影響 |
 |---|---|---|
-| 1 | 起案者向け通知の宛先解決方法（イベントへownerUserId追加 or Project公開契約の拡張） | 工程8の通知範囲。`NotificationEventHandler` に `TODO(question)` |
-| 2 | 冪等記録の削除バッチの要否（基本設計 §8.1 に項目なし） | `idempotency_record` が無限に増える |
+| 1 | ~~起案者向け通知の宛先解決方法~~ → **解決済（ADR-0002: イベントにownerUserId追加）** | — |
+| 2 | ~~冪等記録の削除バッチの要否~~ → **解決済（BAT-010として実装）** | — |
 | 3 | 監査アーカイブ（BAT-009）の実出力先（S3バケット・ストレージクラス・保持年数） | 現在はハッシュ算出のみのローカル実装。`LocalAuditArchiveAdapter` に `TODO(question)` |
 | 4 | Outbox配送のSQS切替（現状は `InProcessOutboxDispatcher` によるアプリ内配送） | ADR候補。マルチインスタンス構成時に必要 |
 | 5 | バッチの分散ロック（基本設計 §8.3「分散ロックまたはDBロック」） | 現在は対象行の `FOR UPDATE SKIP LOCKED` のみで多重起動に対応。ShedLock相当の導入要否 |

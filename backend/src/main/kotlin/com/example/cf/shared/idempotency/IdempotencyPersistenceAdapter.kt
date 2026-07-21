@@ -87,6 +87,21 @@ class IdempotencyPersistenceAdapter(
         )
     }
 
+    override fun deleteExpired(limit: Int): Int {
+        // PostgreSQLのDELETEはLIMIT非対応のため、ctidサブクエリで件数を制限する（§9: 10,000件/Tx想定）
+        return jdbcTemplate.update(
+            """
+            delete from idempotency_record
+             where ctid in (
+                 select ctid from idempotency_record
+                  where expires_at < ?
+                  limit ?
+             )
+            """.trimIndent(),
+            Timestamp.from(clock.instant()), limit,
+        )
+    }
+
     private fun insertProcessing(scope: String, actorId: String, key: IdempotencyKey, requestHash: String) {
         val now = clock.instant()
         try {

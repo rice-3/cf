@@ -142,7 +142,7 @@ class Project(
     fun approve(reviewId: ReviewId, reviewerUserId: UserId, now: Instant): ProjectApproved {
         transitionTo(ProjectStatus.APPROVED, "PROJECT_INVALID_STATE")
         touch(now)
-        return ProjectApproved(id, reviewId, reviewerUserId, now)
+        return ProjectApproved(id, ownerUserId, reviewId, reviewerUserId, now)
     }
 
     /** 差戻し（UC-RV-003）。コメント必須（§3.3）。 */
@@ -155,7 +155,7 @@ class Project(
         require(comment.isNotBlank()) { "return comment is required" }
         transitionTo(ProjectStatus.RETURNED, "PROJECT_INVALID_STATE")
         touch(now)
-        return ProjectReturned(id, reviewId, reviewerUserId, comment, now)
+        return ProjectReturned(id, ownerUserId, reviewId, reviewerUserId, comment, now)
     }
 
     /** 却下。理由区分必須。 */
@@ -163,7 +163,7 @@ class Project(
         require(reasonCode.isNotBlank()) { "reject reason code is required" }
         transitionTo(ProjectStatus.REJECTED, "PROJECT_INVALID_STATE")
         touch(now)
-        return ProjectRejected(id, reviewId, reviewerUserId, reasonCode, now)
+        return ProjectRejected(id, ownerUserId, reviewId, reviewerUserId, reasonCode, now)
     }
 
     /** 取消（API-PJ-006）。DRAFT/RETURNED/APPROVED等から可（§4.1.2 cancel）。 */
@@ -183,7 +183,7 @@ class Project(
         }
         transitionTo(ProjectStatus.PUBLISHED, "PROJECT_INVALID_STATE")
         touch(now)
-        return ProjectPublished(id, now)
+        return ProjectPublished(id, ownerUserId, now)
     }
 
     /**
@@ -206,6 +206,7 @@ class Project(
         return if (succeeded) {
             ProjectSucceeded(
                 projectId = id,
+                ownerUserId = ownerUserId,
                 fundingType = fundingCondition.fundingType,
                 targetAmount = fundingCondition.targetAmount.amount,
                 raisedAmount = raisedAmount.amount,
@@ -214,6 +215,7 @@ class Project(
         } else {
             ProjectFailed(
                 projectId = id,
+                ownerUserId = ownerUserId,
                 fundingType = fundingCondition.fundingType,
                 targetAmount = fundingCondition.targetAmount.amount,
                 raisedAmount = raisedAmount.amount,

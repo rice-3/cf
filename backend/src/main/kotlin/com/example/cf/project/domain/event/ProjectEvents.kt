@@ -43,6 +43,7 @@ data class ProjectReviewStarted(
 
 data class ProjectApproved(
     override val projectId: ProjectId,
+    val ownerUserId: UserId,
     val reviewId: ReviewId,
     val reviewerUserId: UserId,
     val occurredAt: Instant,
@@ -52,6 +53,7 @@ data class ProjectApproved(
 
 data class ProjectReturned(
     override val projectId: ProjectId,
+    val ownerUserId: UserId,
     val reviewId: ReviewId,
     val reviewerUserId: UserId,
     val comment: String,
@@ -62,6 +64,7 @@ data class ProjectReturned(
 
 data class ProjectRejected(
     override val projectId: ProjectId,
+    val ownerUserId: UserId,
     val reviewId: ReviewId,
     val reviewerUserId: UserId,
     val reasonCode: String,
@@ -81,6 +84,7 @@ data class ProjectCancelled(
 
 data class ProjectPublished(
     override val projectId: ProjectId,
+    val ownerUserId: UserId,
     val occurredAt: Instant,
 ) : ProjectDomainEvent {
     override val eventType: String = "ProjectPublished"
@@ -94,6 +98,7 @@ data class ProjectPublished(
  * 購読側はpayloadを解釈せず eventType だけで振り分けられる。
  */
 sealed interface ProjectFundingResult : ProjectDomainEvent {
+    val ownerUserId: UserId
     val fundingType: FundingType
     val targetAmount: Long
     val raisedAmount: Long
@@ -103,6 +108,7 @@ sealed interface ProjectFundingResult : ProjectDomainEvent {
 /** 募集成立。精算（SETTLED）へ進む。 */
 data class ProjectSucceeded(
     override val projectId: ProjectId,
+    override val ownerUserId: UserId,
     override val fundingType: FundingType,
     override val targetAmount: Long,
     override val raisedAmount: Long,
@@ -114,6 +120,7 @@ data class ProjectSucceeded(
 /** 募集不成立。BAT-003 返金対象作成の起動契機となる（基本設計 §8.1）。 */
 data class ProjectFailed(
     override val projectId: ProjectId,
+    override val ownerUserId: UserId,
     override val fundingType: FundingType,
     override val targetAmount: Long,
     override val raisedAmount: Long,

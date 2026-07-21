@@ -36,4 +36,12 @@ interface IdempotencyPort {
         responseStatus: Int,
         responseBody: Map<String, Any?>,
     )
+
+    /**
+     * 失効済み（expires_at < now）の冪等記録を最大 [limit] 件削除する（BAT-010）。
+     * 失効後は再実行が許可される（begin側でリセット）ため、物理削除しても業務影響はない。
+     *
+     * @return 削除件数
+     */
+    fun deleteExpired(limit: Int): Int
 }

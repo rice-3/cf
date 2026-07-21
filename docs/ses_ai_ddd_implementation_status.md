@@ -242,6 +242,22 @@ frontendの画面確認後、GitHubリポジトリの内容を検証して発覚
 
 ---
 
+## 3.5 工程8の残タスク完了（2026-07-21）
+
+- **起案者向け通知（ADR-0002）**: `ProjectApproved/Returned/Rejected/Published/Succeeded/Failed`
+  に `ownerUserId` を追加（event-carried state transfer）。`NotificationEventHandler` は
+  宛先種別（OWNER/SUPPORTER）を購読テンプレートごとに持ち、OWNER種別は `payload.ownerUserId` で解決。
+  起案者向けテンプレート6種を購読追加。
+- **SESテンプレート**: `NotificationTemplateCatalog`（件名・本文の単一の正）を新設。
+  `MockNotificationSender` がローカルでレンダリングしログ出力。SES登録はカタログを正とし
+  Terraform/CLIで反映（Terraformは工程10）。
+- **BAT-010 冪等記録削除**: `IdempotencyPort.deleteExpired` + `IdempotencyCleanupBatch`（日次）。
+  `ctid` サブクエリで件数制限（PostgreSQLのDELETE LIMIT非対応対策）。
+- テスト: `ProjectTest`（ownerUserId保持）、`BatchFlowIntegrationTest`（PROJECT_FAILED通知の起案者宛登録、
+  BAT-010の失効記録のみ削除）を追加。全テスト通過。
+
+---
+
 ## 4. 残タスク（工程8以降）
 
 ### 4.1 実装順序 8: Notification / Refund / Batch
