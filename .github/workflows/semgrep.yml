@@ -1,0 +1,54 @@
+name: Semgrep (JVM SAST)
+
+# JVM側（Kotlin/Java）の静的セキュリティ解析（詳細設計 §13.4、§14.1 SAST）。
+#
+# CodeQLのKotlin抽出器は本プロジェクトのKotlin 2.4系に未対応のため、JVM側SASTは
+# Semgrepで実施する。Semgrepはソースを直接解析し、コンパイルやJDK/Kotlinのバージョンに
+# 依存しないため、最新のKotlinでも解析できる。
+#
+# 検出結果は GitHub Code Scanning（Securityタブ）へSARIFで報告する（レポート方式）。
+# CIをブロックしない（scanステップは continue-on-error）。ゲート化する場合は
+# continue-on-error を外すか `semgrep ci` を用いる。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "30 2 * * 1" # 毎週月曜 02:30 UTC
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  semgrep:
+    name: Semgrep (backend Kotlin/Java)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Semgrep
+        run: pip install --disable-pip-version-check semgrep
+
+      - name: Run Semgrep (Kotlin/Java rulesets)
+        continue-on-error: true
+        run: |
+          semgrep scan \
+            --config p/java \
+            --config p/kotlin \
+            --sarif --output semgrep.sarif \
+            --metrics=off \
+            backend
+
+      - name: Upload SARIF to code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep-jvm

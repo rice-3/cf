@@ -29,10 +29,14 @@
 - [x] **`.github/workflows/` のCI構築** — `ci.yml` / `codeql.yml` を作成（詳細設計 §13.4）。
   - `ci.yml`: backend（Wrapper検証 → Corretto 25 → `gradlew build` = compile/unit/ArchUnit/
     Testcontainers統合）、frontend（Node 24 → typecheck → build）、secret-scan（gitleaks）
-  - `codeql.yml`: SAST（**javascript-typescript のみ**）※パブリックリポジトリまたはGHASが必要
-- [ ] **JVM側SAST（java-kotlin）の有効化** — 本プロジェクトのKotlin 2.4系がCodeQLのKotlin抽出器で
-  未対応のため一時除外中（`CODEQL_EXTRACTOR_KOTLIN_ALLOW_UNSUPPORTED_VERSION=true` でも抽出不可を確認）。
-  CodeQLがKotlin 2.4対応後に `codeql.yml` へ java-kotlin を追加する。
+  - `codeql.yml`: SAST（**javascript-typescript**、フロントエンド）※パブリックリポジトリまたはGHASが必要
+  - `semgrep.yml`: **JVM側SAST（Kotlin/Java）** をSemgrepで実施。結果はCode Scanningへレポート
+- [x] **JVM側SAST（Kotlin/Java）の有効化** — CodeQLのKotlin抽出器がKotlin 2.4系に未対応
+  （`CODEQL_EXTRACTOR_KOTLIN_ALLOW_UNSUPPORTED_VERSION=true` でも抽出不可を確認）だったため、
+  **Semgrep**（`p/java` + `p/kotlin`）で代替。Semgrepはソース直接解析でコンパイル/JDK/Kotlin
+  バージョンに非依存。検出はCode Scanning（Securityタブ）へSARIF報告（現状はレポート方式で非ブロッキング）。
+  - [ ] CodeQLがKotlin 2.4対応後に `codeql.yml` へ java-kotlin を追加（Semgrepと併用 or 置換を判断）
+  - [ ] Semgrepをゲート化（`continue-on-error`除去 or `semgrep ci`）する場合は既存findingsの棚卸しが前提
 - [ ] **未カバーの品質ゲート**（詳細設計 §13.4 のうち今回未対応）
   - format（spotless/ktlint 未導入）
   - OpenAPI互換チェック（`openapi.yaml` の生成/コミット運用が未整備）
