@@ -45,6 +45,13 @@ jobs:
         run: |
           trivy fs --scanners license --format table --exit-code 0 --no-progress .
 
+      # ゲート: 我々が管理する依存の「修正可能な」HIGH/CRITICAL脆弱性でCIを失敗させる。
+      # --ignore-unfixed で未修正（アップグレード不能）なものは対象外とし、依存更新で直せるものだけブロックする。
+      - name: Trivy dependency gate (fail on fixable HIGH/CRITICAL)
+        run: |
+          trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+            --exit-code 1 --no-progress .
+
   container:
     name: Container image scan
     runs-on: ubuntu-latest
@@ -59,7 +66,10 @@ jobs:
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
             | sh -s -- -b /usr/local/bin
 
-      - name: Trivy image scan (SARIF)
+      # ベースイメージ（Amazon Linux 2023）由来のOS脆弱性が大半で、CVE公開のたびに増減するため
+      # ここはレポート方式（exit-code 0）とし、CIは落とさない。是正はベースイメージ更新で行い、
+      # 検出内容はCode Scanning（Securityタブ）で継続的に追跡する。
+      - name: Trivy image scan (SARIF, report-only)
         run: |
           trivy image --format sarif --output trivy-image.sarif \
             --exit-code 0 --no-progress cf-training-backend:ci

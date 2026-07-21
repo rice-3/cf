@@ -6,9 +6,9 @@ name: Semgrep (JVM SAST)
 # Semgrepで実施する。Semgrepはソースを直接解析し、コンパイルやJDK/Kotlinのバージョンに
 # 依存しないため、最新のKotlinでも解析できる。
 #
-# 検出結果は GitHub Code Scanning（Securityタブ）へSARIFで報告する（レポート方式）。
-# CIをブロックしない（scanステップは continue-on-error）。ゲート化する場合は
-# continue-on-error を外すか `semgrep ci` を用いる。
+# 検出結果は GitHub Code Scanning（Securityタブ）へSARIFで報告しつつ、findingsがあればCIを失敗させる
+# （ゲート方式、`--error`）。SARIFは失敗時も if: always() でアップロードする。
+# 現状の検出は0件のため緑。新たなSAST指摘が入るとブロックされる。
 on:
   push:
     branches: [main]
@@ -37,12 +37,12 @@ jobs:
         run: pip install --disable-pip-version-check semgrep
 
       - name: Run Semgrep (Kotlin/Java rulesets)
-        continue-on-error: true
         run: |
           semgrep scan \
             --config p/java \
             --config p/kotlin \
             --sarif --output semgrep.sarif \
+            --error \
             --metrics=off \
             backend
 

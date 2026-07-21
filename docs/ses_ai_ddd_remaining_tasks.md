@@ -54,9 +54,17 @@
   - 互換ゲート: `openapi.yml` が oasdiff で base→現在のspecを比較し、破壊的変更（`--fail-on ERR`）で失敗。
   - `/v3/api-docs.yaml` を公開（SecurityConfigで許可）。本番で隠す場合は `springdoc.api-docs.enabled=false`。
   - [ ] contract-first のDTO自動生成（§6.15）は未対応（現状は code-first + spec生成）。UI（swagger-ui）も未導入。
-- [ ] **スキャンのゲート化** — Trivy/Semgrepは現状レポート方式（`exit-code 0`）。既存findings棚卸し後に
-  重大度しきい値でCIブロックへ切替可能。
-- [ ] **CD** — main反映後の image build → ECR push → ECS デプロイ（Terraform 前提、§3.3と連動）
+- [x] **スキャンのゲート化** — findings棚卸し（Code Scanning: Semgrep 0件 / Trivy high19・medium3、
+  うち high はすべてベースイメージ由来、fs依存とjacksonは medium）を実施のうえ、緑を保ちつつゲート化:
+  - Semgrep: `--error` でfindingsがあれば失敗（現状0件で緑）。
+  - Trivy fs（依存）: `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1` で、我々が更新で直せる
+    高深刻度のみブロック（現状0件で緑。ローカルTrivyでもexit 0確認）。
+  - Trivy コンテナ: ベースイメージ（AL2023）のOS脆弱性はCVE公開で増減するためレポート方式を継続。
+    是正はベースイメージ更新で行い、Code Scanningで追跡。
+- [ ] **CD** — `cd.yml` を作成（手動 `workflow_dispatch`、環境承認付き）。image build → ECR push →
+  ECS ローリング更新（`aws-actions/*`, OIDC）。**Terraform（§3.3）でECR/ECS/IAMロールを構築し、
+  リポジトリVariables（AWS_REGION等）を設定するまでは動作しない**（未設定時は早期失敗）。
+  AWS未提供のため実行検証は未実施。infra整備後に有効化する。
 
 ### 2.2 運用者向け検索API + SCR-060/061 の一覧UI化
 
