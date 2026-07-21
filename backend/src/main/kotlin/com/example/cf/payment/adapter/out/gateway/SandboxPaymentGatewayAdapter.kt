@@ -48,8 +48,7 @@ class SandboxPaymentGatewayAdapter(
         return ProviderPaymentResult(providerPaymentId, ProviderPaymentStatus.ACCEPTED)
     }
 
-    override fun getPayment(providerPaymentId: String): ProviderPaymentResult =
-        ProviderPaymentResult(providerPaymentId, ProviderPaymentStatus.UNKNOWN)
+    override fun getPayment(providerPaymentId: String): ProviderPaymentResult = ProviderPaymentResult(providerPaymentId, ProviderPaymentStatus.UNKNOWN)
 
     /**
      * 教育用Sandboxの返金。外部冪等キーごとに結果を保持し、再試行しても二重返金にならない
@@ -70,9 +69,8 @@ class SandboxPaymentGatewayAdapter(
         return result
     }
 
-    override fun getRefund(providerRefundId: String): ProviderRefundResult =
-        refunds.values.firstOrNull { it.providerRefundId == providerRefundId }
-            ?: ProviderRefundResult(providerRefundId, ProviderRefundStatus.UNKNOWN)
+    override fun getRefund(providerRefundId: String): ProviderRefundResult = refunds.values.firstOrNull { it.providerRefundId == providerRefundId }
+        ?: ProviderRefundResult(providerRefundId, ProviderRefundStatus.UNKNOWN)
 
     /**
      * HMAC-SHA256署名と時刻許容差を検証する（§6.8: 許容5分）。
@@ -116,14 +114,12 @@ class SandboxPaymentGatewayAdapter(
         return mac.doFinal(message.toByteArray()).joinToString("") { "%02x".format(it) }
     }
 
-    private fun sha256Hex(value: String): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest(value.toByteArray())
-            .joinToString("") { "%02x".format(it) }
+    private fun sha256Hex(value: String): String = MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray())
+        .joinToString("") { "%02x".format(it) }
 
     /** タイミング攻撃を避けるため長さ非依存で比較する。 */
-    private fun constantTimeEquals(a: String, b: String): Boolean =
-        MessageDigest.isEqual(a.toByteArray(), b.toByteArray())
+    private fun constantTimeEquals(a: String, b: String): Boolean = MessageDigest.isEqual(a.toByteArray(), b.toByteArray())
 
     companion object {
         /** テスト・ローカル動作確認用の署名生成（本番経路では使用しない）。 */

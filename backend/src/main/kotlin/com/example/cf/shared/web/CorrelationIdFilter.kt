@@ -43,8 +43,7 @@ class CorrelationIdFilter : OncePerRequestFilter() {
         const val ATTRIBUTE = "cf.correlationId"
         const val MDC_KEY = "correlationId"
 
-        fun from(request: HttpServletRequest): CorrelationId =
-            request.getAttribute(ATTRIBUTE) as? CorrelationId
-                ?: CorrelationId("cor_${UUID.randomUUID()}")
+        fun from(request: HttpServletRequest): CorrelationId = request.getAttribute(ATTRIBUTE) as? CorrelationId
+            ?: CorrelationId("cor_${UUID.randomUUID()}")
     }
 }

@@ -40,33 +40,30 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(ValidationException::class)
-    fun handleValidation(e: ValidationException, request: HttpServletRequest): ProblemDetail =
-        problem(HttpStatus.BAD_REQUEST, e.errorCode, e.message ?: "入力内容を確認してください。", request).apply {
-            if (e.fieldErrors.isNotEmpty()) {
-                setProperty("errors", e.fieldErrors)
-            }
+    fun handleValidation(e: ValidationException, request: HttpServletRequest): ProblemDetail = problem(HttpStatus.BAD_REQUEST, e.errorCode, e.message ?: "入力内容を確認してください。", request).apply {
+        if (e.fieldErrors.isNotEmpty()) {
+            setProperty("errors", e.fieldErrors)
         }
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleMethodArgumentNotValid(
         e: MethodArgumentNotValidException,
         request: HttpServletRequest,
-    ): ProblemDetail =
-        problem(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "入力内容を確認してください。", request).apply {
-            setProperty(
-                "errors",
-                e.bindingResult.fieldErrors.map {
-                    mapOf("field" to it.field, "code" to (it.code ?: ""), "message" to (it.defaultMessage ?: ""))
-                },
-            )
-        }
+    ): ProblemDetail = problem(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "入力内容を確認してください。", request).apply {
+        setProperty(
+            "errors",
+            e.bindingResult.fieldErrors.map {
+                mapOf("field" to it.field, "code" to (it.code ?: ""), "message" to (it.defaultMessage ?: ""))
+            },
+        )
+    }
 
     @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException::class)
     fun handleUnreadable(
         e: org.springframework.http.converter.HttpMessageNotReadableException,
         request: HttpServletRequest,
-    ): ProblemDetail =
-        problem(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "リクエスト形式を確認してください。", request)
+    ): ProblemDetail = problem(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "リクエスト形式を確認してください。", request)
 
     @ExceptionHandler(AuthenticationRequiredException::class)
     fun handleAuthenticationRequired(
@@ -87,20 +84,17 @@ class GlobalExceptionHandler {
     ): ProblemDetail = problem(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "この操作を実行する権限がありません。", request)
 
     @ExceptionHandler(ResourceNotFoundException::class)
-    fun handleNotFound(e: ResourceNotFoundException, request: HttpServletRequest): ProblemDetail =
-        problem(HttpStatus.NOT_FOUND, e.errorCode, "対象が見つかりません。", request)
+    fun handleNotFound(e: ResourceNotFoundException, request: HttpServletRequest): ProblemDetail = problem(HttpStatus.NOT_FOUND, e.errorCode, "対象が見つかりません。", request)
 
     @ExceptionHandler(ConflictException::class)
-    fun handleConflict(e: ConflictException, request: HttpServletRequest): ProblemDetail =
-        problem(HttpStatus.CONFLICT, e.errorCode, e.message ?: "競合が発生しました。", request)
+    fun handleConflict(e: ConflictException, request: HttpServletRequest): ProblemDetail = problem(HttpStatus.CONFLICT, e.errorCode, e.message ?: "競合が発生しました。", request)
 
     @ExceptionHandler(BusinessRuleViolationException::class)
-    fun handleBusinessRule(e: BusinessRuleViolationException, request: HttpServletRequest): ProblemDetail =
-        problem(HttpStatus.UNPROCESSABLE_CONTENT, e.errorCode, e.message ?: "業務条件を満たしていません。", request).apply {
-            if (e.violations.isNotEmpty()) {
-                setProperty("violations", e.violations)
-            }
+    fun handleBusinessRule(e: BusinessRuleViolationException, request: HttpServletRequest): ProblemDetail = problem(HttpStatus.UNPROCESSABLE_CONTENT, e.errorCode, e.message ?: "業務条件を満たしていません。", request).apply {
+        if (e.violations.isNotEmpty()) {
+            setProperty("violations", e.violations)
         }
+    }
 
     @ExceptionHandler(DependencyException::class)
     fun handleDependency(e: DependencyException, request: HttpServletRequest): ProblemDetail {

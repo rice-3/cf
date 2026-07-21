@@ -66,10 +66,14 @@ cd backend
 
 GitHub Actions（`.github/workflows/`）でPR品質ゲートを実行（詳細設計 §13.4）。
 
-- `ci.yml` — backend（compile → unit → ArchUnit → integration/Testcontainers）、
+- `ci.yml` — backend（format/Spotless → compile → unit → ArchUnit → integration/Testcontainers）、
   frontend（typecheck → build）、secret-scan（gitleaks）
 - `codeql.yml` — SAST（javascript-typescript、フロントエンド）
 - `semgrep.yml` — JVM側SAST（Kotlin/Java、Semgrep）。CodeQLがKotlin 2.4未対応のためSemgrepで実施
+- `security-scan.yml` — Trivy（依存/ライセンス fs スキャン + コンテナイメージスキャン）
+
+コード整形は Spotless + ktlint（`./gradlew spotlessApply` で整形、`spotlessCheck` は `build` に自動組込み）。
+コンテナは `backend/Dockerfile`（マルチステージ / Corretto 25 / 非root）。
 
 ## 実装状況
 

@@ -3,12 +3,12 @@ package com.example.cf.payment.application
 import com.example.cf.payment.domain.event.PaymentRequested
 import com.example.cf.payment.domain.model.Payment
 import com.example.cf.payment.domain.repository.PaymentRepository
+import com.example.cf.shared.kernel.id.CorrelationId
 import com.example.cf.shared.kernel.id.PaymentId
 import com.example.cf.shared.kernel.id.SupportId
 import com.example.cf.shared.kernel.id.UlidGenerator
 import com.example.cf.shared.kernel.money.Money
 import com.example.cf.shared.outbox.OutboxAppendPort
-import com.example.cf.shared.kernel.id.CorrelationId
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock

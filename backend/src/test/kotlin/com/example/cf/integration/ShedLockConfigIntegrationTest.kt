@@ -43,13 +43,12 @@ class ShedLockConfigIntegrationTest {
     @TestConfiguration
     class LockProviderTestConfig {
         @Bean
-        fun testLockProvider(dataSource: DataSource): LockProvider =
-            net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider(
-                net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider.Configuration.builder()
-                    .withJdbcTemplate(JdbcTemplate(dataSource))
-                    .usingDbTime()
-                    .build(),
-            )
+        fun testLockProvider(dataSource: DataSource): LockProvider = net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider(
+            net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider.Configuration.builder()
+                .withJdbcTemplate(JdbcTemplate(dataSource))
+                .usingDbTime()
+                .build(),
+        )
     }
 
     @Autowired
@@ -78,7 +77,9 @@ class ShedLockConfigIntegrationTest {
 
         // shedlockテーブルにロック行が記録される
         val rows = jdbcTemplate.queryForObject(
-            "select count(*) from shedlock where name = ?", Int::class.java, name,
+            "select count(*) from shedlock where name = ?",
+            Int::class.java,
+            name,
         ) ?: 0
         assertEquals(1, rows, "shedlockにロック行が1件記録される")
 

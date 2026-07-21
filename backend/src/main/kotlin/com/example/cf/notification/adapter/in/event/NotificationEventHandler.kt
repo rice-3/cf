@@ -40,7 +40,8 @@ class NotificationEventHandler(
         if (recipientUserId == null) {
             log.warn(
                 "Notification skipped; recipient not resolved: eventType={} aggregateId={}",
-                message.eventType, message.aggregateId,
+                message.eventType,
+                message.aggregateId,
             )
             return
         }
@@ -62,8 +63,7 @@ class NotificationEventHandler(
     }
 
     /** 起案者向けイベント: payloadのownerUserIdから解決する（ADR-0002）。 */
-    private fun resolveOwnerUserId(message: OutboxMessage): String? =
-        readUlid(message.payload["ownerUserId"])
+    private fun resolveOwnerUserId(message: OutboxMessage): String? = readUlid(message.payload["ownerUserId"])
 
     /** 支援者向けイベント: payloadのsupporterUserId、無ければsupportIdからFundingの公開契約で解決する。 */
     private fun resolveSupporterUserId(message: OutboxMessage): String? {

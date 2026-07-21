@@ -72,9 +72,8 @@ interface ReviewHistoryPort {
 
 // ---- UseCase実装 ------------------------------------------------------------
 
-private fun ReviewRepository.getForUpdate(id: ReviewId): ReviewRequest =
-    findByIdForUpdate(id)
-        ?: throw ResourceNotFoundException("REVIEW_NOT_FOUND", "Review ${id.value} is not found")
+private fun ReviewRepository.getForUpdate(id: ReviewId): ReviewRequest = findByIdForUpdate(id)
+    ?: throw ResourceNotFoundException("REVIEW_NOT_FOUND", "Review ${id.value} is not found")
 
 /**
  * UC-RV-001 審査開始。Review割当とProject状態遷移を同一トランザクションで行う。
@@ -158,7 +157,13 @@ class ApproveReviewService(
         reviewRepository.save(review)
         projectRepository.save(project)
         historyPort.record(
-            review.id, "APPROVE", null, command.comment, command.checklist, currentUser.userId, now,
+            review.id,
+            "APPROVE",
+            null,
+            command.comment,
+            command.checklist,
+            currentUser.userId,
+            now,
         )
         outbox.append(event, audit.correlationId)
         auditPort.record(audit, "REVIEW_APPROVE", RESOURCE_TYPE, review.id.value, "SUCCESS")
@@ -250,7 +255,13 @@ class RejectReviewService(
         reviewRepository.save(review)
         projectRepository.save(project)
         historyPort.record(
-            review.id, "REJECT", command.reasonCode.name, command.comment, null, currentUser.userId, now,
+            review.id,
+            "REJECT",
+            command.reasonCode.name,
+            command.comment,
+            null,
+            currentUser.userId,
+            now,
         )
         outbox.append(event, audit.correlationId)
         auditPort.record(audit, "REVIEW_REJECT", RESOURCE_TYPE, review.id.value, "SUCCESS")

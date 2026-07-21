@@ -23,34 +23,41 @@ class DevUserSeeder {
 
     @Bean
     @ConditionalOnProperty("cf.seed.dev-users", havingValue = "true", matchIfMissing = true)
-    fun devUserSeedRunner(jdbcTemplate: JdbcTemplate, clock: Clock): CommandLineRunner =
-        CommandLineRunner {
-            DEV_USERS.forEach { (userId, email, name, roles) ->
-                val exists = jdbcTemplate.queryForObject(
-                    "select count(*) from app_user where user_id = ?",
-                    Int::class.java,
-                    userId,
-                ) ?: 0
-                if (exists == 0) {
-                    val now = java.sql.Timestamp.from(clock.instant())
-                    jdbcTemplate.update(
-                        """
+    fun devUserSeedRunner(jdbcTemplate: JdbcTemplate, clock: Clock): CommandLineRunner = CommandLineRunner {
+        DEV_USERS.forEach { (userId, email, name, roles) ->
+            val exists = jdbcTemplate.queryForObject(
+                "select count(*) from app_user where user_id = ?",
+                Int::class.java,
+                userId,
+            ) ?: 0
+            if (exists == 0) {
+                val now = java.sql.Timestamp.from(clock.instant())
+                jdbcTemplate.update(
+                    """
                         insert into app_user
                             (user_id, cognito_subject, email, display_name, status, version, created_at, updated_at)
                         values (?, ?, ?, ?, 'ACTIVE', 0, ?, ?)
-                        """.trimIndent(),
-                        userId, "local|$userId", email, name, now, now,
+                    """.trimIndent(),
+                    userId,
+                    "local|$userId",
+                    email,
+                    name,
+                    now,
+                    now,
+                )
+                roles.forEach { role ->
+                    jdbcTemplate.update(
+                        "insert into user_role (user_id, role_code, assigned_at, assigned_by) values (?, ?, ?, ?)",
+                        userId,
+                        role,
+                        now,
+                        userId,
                     )
-                    roles.forEach { role ->
-                        jdbcTemplate.update(
-                            "insert into user_role (user_id, role_code, assigned_at, assigned_by) values (?, ?, ?, ?)",
-                            userId, role, now, userId,
-                        )
-                    }
-                    log.info("Seeded dev user: {} ({})", name, userId)
                 }
+                log.info("Seeded dev user: {} ({})", name, userId)
             }
         }
+    }
 
     companion object {
         const val DEV_OWNER_ID = "01K00000000000000000000001"

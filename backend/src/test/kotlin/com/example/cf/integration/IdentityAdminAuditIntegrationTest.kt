@@ -79,7 +79,10 @@ class IdentityAdminAuditIntegrationTest {
     @Order(1)
     fun `自分のプロフィールを取得できる`() {
         val response = rest.exchange(
-            url("/api/v1/me"), HttpMethod.GET, HttpEntity<Void>(supporterHeaders()), Map::class.java,
+            url("/api/v1/me"),
+            HttpMethod.GET,
+            HttpEntity<Void>(supporterHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.OK, response.statusCode, "body=${response.body}")
         val data = dataOf(response.body)
@@ -93,7 +96,10 @@ class IdentityAdminAuditIntegrationTest {
     fun `version不一致のプロフィール更新は409になる`() {
         val body = """{"displayName":"更新後の名前","email":"supporter-updated@example.invalid","expectedVersion":99}"""
         val response = rest.exchange(
-            url("/api/v1/me"), HttpMethod.PUT, HttpEntity(body, supporterHeaders()), Map::class.java,
+            url("/api/v1/me"),
+            HttpMethod.PUT,
+            HttpEntity(body, supporterHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.CONFLICT, response.statusCode)
         assertEquals("OPTIMISTIC_LOCK_CONFLICT", response.body?.get("code"))
@@ -104,7 +110,10 @@ class IdentityAdminAuditIntegrationTest {
     fun `既に使われているメールへの更新は409 EMAIL_ALREADY_USEDになる`() {
         val body = """{"displayName":"更新後の名前","email":"admin@example.invalid","expectedVersion":0}"""
         val response = rest.exchange(
-            url("/api/v1/me"), HttpMethod.PUT, HttpEntity(body, supporterHeaders()), Map::class.java,
+            url("/api/v1/me"),
+            HttpMethod.PUT,
+            HttpEntity(body, supporterHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.CONFLICT, response.statusCode)
         assertEquals("EMAIL_ALREADY_USED", response.body?.get("code"))
@@ -115,7 +124,10 @@ class IdentityAdminAuditIntegrationTest {
     fun `正しいversionでプロフィールを更新できる`() {
         val body = """{"displayName":"更新後の名前","email":"supporter-updated@example.invalid","expectedVersion":0}"""
         val response = rest.exchange(
-            url("/api/v1/me"), HttpMethod.PUT, HttpEntity(body, supporterHeaders()), Map::class.java,
+            url("/api/v1/me"),
+            HttpMethod.PUT,
+            HttpEntity(body, supporterHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.OK, response.statusCode, "body=${response.body}")
         val data = dataOf(response.body)
@@ -129,7 +141,10 @@ class IdentityAdminAuditIntegrationTest {
     @Order(10)
     fun `ADMIN以外は会員検索できない`() {
         val response = rest.exchange(
-            url("/api/v1/admin/users"), HttpMethod.GET, HttpEntity<Void>(supporterHeaders()), Map::class.java,
+            url("/api/v1/admin/users"),
+            HttpMethod.GET,
+            HttpEntity<Void>(supporterHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.FORBIDDEN, response.statusCode)
     }
@@ -138,10 +153,14 @@ class IdentityAdminAuditIntegrationTest {
     @Order(11)
     fun `ADMINは会員検索できる`() {
         val response = rest.exchange(
-            url("/api/v1/admin/users?size=50"), HttpMethod.GET, HttpEntity<Void>(adminHeaders()), Map::class.java,
+            url("/api/v1/admin/users?size=50"),
+            HttpMethod.GET,
+            HttpEntity<Void>(adminHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.OK, response.statusCode, "body=${response.body}")
         val data = dataOf(response.body)
+
         @Suppress("UNCHECKED_CAST")
         val items = data["items"] as List<Map<String, Any?>>
         assertTrue(items.any { it["userId"] == DevUserSeeder.DEV_SUPPORTER_ID }, "seeded users should be included")
@@ -155,7 +174,9 @@ class IdentityAdminAuditIntegrationTest {
         val body = """{"roles":["OPERATOR","AUDITOR"],"expectedVersion":0,"reason":"テスト"}"""
         val response = rest.exchange(
             url("/api/v1/admin/users/${DevUserSeeder.DEV_ADMIN_ID}/roles"),
-            HttpMethod.PUT, HttpEntity(body, adminHeaders()), Map::class.java,
+            HttpMethod.PUT,
+            HttpEntity(body, adminHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.FORBIDDEN, response.statusCode)
         assertEquals("ROLE_UPDATE_FORBIDDEN", response.body?.get("code"))
@@ -167,7 +188,9 @@ class IdentityAdminAuditIntegrationTest {
         val body = """{"roles":["OWNER","REVIEWER"],"expectedVersion":99,"reason":"テスト"}"""
         val response = rest.exchange(
             url("/api/v1/admin/users/${DevUserSeeder.DEV_OWNER_ID}/roles"),
-            HttpMethod.PUT, HttpEntity(body, adminHeaders()), Map::class.java,
+            HttpMethod.PUT,
+            HttpEntity(body, adminHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.CONFLICT, response.statusCode)
         assertEquals("OPTIMISTIC_LOCK_CONFLICT", response.body?.get("code"))
@@ -179,7 +202,9 @@ class IdentityAdminAuditIntegrationTest {
         val body = """{"roles":["OWNER","REVIEWER"],"expectedVersion":0,"reason":"審査担当も兼任させる"}"""
         val response = rest.exchange(
             url("/api/v1/admin/users/${DevUserSeeder.DEV_OWNER_ID}/roles"),
-            HttpMethod.PUT, HttpEntity(body, adminHeaders()), Map::class.java,
+            HttpMethod.PUT,
+            HttpEntity(body, adminHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.OK, response.statusCode, "body=${response.body}")
         val data = dataOf(response.body)
@@ -193,7 +218,9 @@ class IdentityAdminAuditIntegrationTest {
         val body = """{"roles":["GUEST"],"expectedVersion":1,"reason":"テスト"}"""
         val response = rest.exchange(
             url("/api/v1/admin/users/${DevUserSeeder.DEV_OWNER_ID}/roles"),
-            HttpMethod.PUT, HttpEntity(body, adminHeaders()), Map::class.java,
+            HttpMethod.PUT,
+            HttpEntity(body, adminHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
     }
@@ -206,7 +233,9 @@ class IdentityAdminAuditIntegrationTest {
         val body = """{"expectedVersion":0}"""
         val response = rest.exchange(
             url("/api/v1/admin/users/${DevUserSeeder.DEV_ADMIN_ID}/suspend"),
-            HttpMethod.POST, HttpEntity(body, adminHeaders()), Map::class.java,
+            HttpMethod.POST,
+            HttpEntity(body, adminHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.FORBIDDEN, response.statusCode)
         assertEquals("USER_SUSPEND_FORBIDDEN", response.body?.get("code"))
@@ -219,7 +248,9 @@ class IdentityAdminAuditIntegrationTest {
         val body = """{"expectedVersion":1,"reason":"規約違反のため"}"""
         val response = rest.exchange(
             url("/api/v1/admin/users/${DevUserSeeder.DEV_OWNER_ID}/suspend"),
-            HttpMethod.POST, HttpEntity(body, adminHeaders()), Map::class.java,
+            HttpMethod.POST,
+            HttpEntity(body, adminHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.OK, response.statusCode, "body=${response.body}")
         assertEquals("SUSPENDED", dataOf(response.body)["status"])
@@ -231,7 +262,9 @@ class IdentityAdminAuditIntegrationTest {
         val body = """{"expectedVersion":1}"""
         val response = rest.exchange(
             url("/api/v1/admin/users/${DevUserSeeder.DEV_OWNER_ID}/suspend"),
-            HttpMethod.POST, HttpEntity(body, adminHeaders()), Map::class.java,
+            HttpMethod.POST,
+            HttpEntity(body, adminHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.CONFLICT, response.statusCode)
         assertEquals("USER_INVALID_STATE", response.body?.get("code"))
@@ -243,8 +276,10 @@ class IdentityAdminAuditIntegrationTest {
     @Order(40)
     fun `ADMIN AUDITOR以外は監査ログを検索できない`() {
         val response = rest.exchange(
-            url("/api/v1/audit-logs?from=${rangeStart}&to=${Instant.now()}"),
-            HttpMethod.GET, HttpEntity<Void>(supporterHeaders()), Map::class.java,
+            url("/api/v1/audit-logs?from=$rangeStart&to=${Instant.now()}"),
+            HttpMethod.GET,
+            HttpEntity<Void>(supporterHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.FORBIDDEN, response.statusCode)
     }
@@ -255,7 +290,9 @@ class IdentityAdminAuditIntegrationTest {
         val from = rangeStart.minus(40, ChronoUnit.DAYS)
         val response = rest.exchange(
             url("/api/v1/audit-logs?from=$from&to=${Instant.now()}"),
-            HttpMethod.GET, HttpEntity<Void>(adminHeaders()), Map::class.java,
+            HttpMethod.GET,
+            HttpEntity<Void>(adminHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
         assertEquals("DATE_RANGE_TOO_LARGE", response.body?.get("code"))
@@ -266,10 +303,13 @@ class IdentityAdminAuditIntegrationTest {
     fun `AUDITOR単独でも監査ログを検索でき役割変更・停止操作が記録されている`() {
         val response = rest.exchange(
             url("/api/v1/audit-logs?from=$rangeStart&to=${Instant.now()}&size=100"),
-            HttpMethod.GET, HttpEntity<Void>(auditorOnlyHeaders()), Map::class.java,
+            HttpMethod.GET,
+            HttpEntity<Void>(auditorOnlyHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.OK, response.statusCode, "body=${response.body}")
         val data = dataOf(response.body)
+
         @Suppress("UNCHECKED_CAST")
         val items = data["items"] as List<Map<String, Any?>>
         val actions = items.map { it["action"] }
@@ -283,7 +323,9 @@ class IdentityAdminAuditIntegrationTest {
     fun `AI利用記録検索は空でも200になる`() {
         val response = rest.exchange(
             url("/api/v1/ai-activities?from=$rangeStart&to=${Instant.now()}"),
-            HttpMethod.GET, HttpEntity<Void>(adminHeaders()), Map::class.java,
+            HttpMethod.GET,
+            HttpEntity<Void>(adminHeaders()),
+            Map::class.java,
         )
         assertEquals(HttpStatus.OK, response.statusCode, "body=${response.body}")
         val data = dataOf(response.body)

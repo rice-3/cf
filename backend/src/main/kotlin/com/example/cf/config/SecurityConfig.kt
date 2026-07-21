@@ -89,10 +89,9 @@ private fun HttpSecurity.applyCommonRules(): HttpSecurity = this
 class DevSecurityConfig {
 
     @Bean
-    fun devSecurityFilterChain(http: HttpSecurity, clock: Clock): SecurityFilterChain =
-        http.applyCommonRules()
-            .addFilterBefore(DevHeaderAuthenticationFilter(clock), UsernamePasswordAuthenticationFilter::class.java)
-            .build()
+    fun devSecurityFilterChain(http: HttpSecurity, clock: Clock): SecurityFilterChain = http.applyCommonRules()
+        .addFilterBefore(DevHeaderAuthenticationFilter(clock), UsernamePasswordAuthenticationFilter::class.java)
+        .build()
 }
 
 /**
@@ -109,8 +108,7 @@ class ResourceServerSecurityConfig(
 ) {
 
     @Bean
-    fun resourceServerFilterChain(http: HttpSecurity): SecurityFilterChain =
-        http.applyCommonRules()
-            .oauth2ResourceServer { it.jwt { jwt -> jwt.jwtAuthenticationConverter(cognitoJwtAuthenticationConverter) } }
-            .build()
+    fun resourceServerFilterChain(http: HttpSecurity): SecurityFilterChain = http.applyCommonRules()
+        .oauth2ResourceServer { it.jwt { jwt -> jwt.jwtAuthenticationConverter(cognitoJwtAuthenticationConverter) } }
+        .build()
 }

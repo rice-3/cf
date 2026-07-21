@@ -91,8 +91,14 @@ class AuditController(
         requireAuditRole(userSupport.requireCurrentUser())
         val (validFrom, validTo) = requireDateRange(from, to)
         val result = auditSearchQuery.searchAuditLogs(
-            validFrom, validTo, actorUserId, action, resourceType, resourceId,
-            page.coerceAtLeast(0), size.coerceIn(1, 100),
+            validFrom,
+            validTo,
+            actorUserId,
+            action,
+            resourceType,
+            resourceId,
+            page.coerceAtLeast(0),
+            size.coerceIn(1, 100),
         )
         val items = result.items.map {
             AuditLogItemResponse(
@@ -119,8 +125,13 @@ class AuditController(
         requireAuditRole(userSupport.requireCurrentUser())
         val (validFrom, validTo) = requireDateRange(from, to)
         val result = auditSearchQuery.searchAiActivities(
-            validFrom, validTo, actorUserId, toolName, actionType,
-            page.coerceAtLeast(0), size.coerceIn(1, 100),
+            validFrom,
+            validTo,
+            actorUserId,
+            toolName,
+            actionType,
+            page.coerceAtLeast(0),
+            size.coerceIn(1, 100),
         )
         val items = result.items.map {
             AiActivityLogItemResponse(

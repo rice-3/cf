@@ -144,7 +144,8 @@ class FileObject(
             now: Instant,
             pendingExpiresAt: Instant,
         ): FileObject {
-            if (originalName.isEmpty() || originalName.length > 255 ||
+            if (originalName.isEmpty() ||
+                originalName.length > 255 ||
                 originalName.any { it == '/' || it == '\\' || it.isISOControl() }
             ) {
                 throw ValidationException(message = "fileName must be 1..255 characters without path separators")

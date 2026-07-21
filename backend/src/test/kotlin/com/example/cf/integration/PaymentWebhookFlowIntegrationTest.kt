@@ -77,25 +77,23 @@ class PaymentWebhookFlowIntegrationTest {
     private var paymentId: String = ""
     private var providerPaymentId: String = ""
 
-    private fun headers(userId: String, roles: String, idempotencyKey: String? = null): HttpHeaders =
-        HttpHeaders().apply {
-            contentType = MediaType.APPLICATION_JSON
-            set("X-Dev-User", userId)
-            set("X-Dev-Roles", roles)
-            idempotencyKey?.let { set("Idempotency-Key", it) }
-        }
+    private fun headers(userId: String, roles: String, idempotencyKey: String? = null): HttpHeaders = HttpHeaders().apply {
+        contentType = MediaType.APPLICATION_JSON
+        set("X-Dev-User", userId)
+        set("X-Dev-Roles", roles)
+        idempotencyKey?.let { set("Idempotency-Key", it) }
+    }
 
     private fun ownerHeaders() = headers(DevUserSeeder.DEV_OWNER_ID, "OWNER,SUPPORTER")
 
     @Suppress("UNCHECKED_CAST")
     private fun dataOf(body: Map<*, *>?): Map<String, Any?> = body?.get("data") as Map<String, Any?>
 
-    private fun webhookHeaders(rawBody: String, timestamp: String = Instant.now().toString()): HttpHeaders =
-        HttpHeaders().apply {
-            contentType = MediaType.APPLICATION_JSON
-            set("X-Sandbox-Timestamp", timestamp)
-            set("X-Sandbox-Signature", SandboxPaymentGatewayAdapter.signForTesting(WEBHOOK_SECRET, timestamp, rawBody))
-        }
+    private fun webhookHeaders(rawBody: String, timestamp: String = Instant.now().toString()): HttpHeaders = HttpHeaders().apply {
+        contentType = MediaType.APPLICATION_JSON
+        set("X-Sandbox-Timestamp", timestamp)
+        set("X-Sandbox-Signature", SandboxPaymentGatewayAdapter.signForTesting(WEBHOOK_SECRET, timestamp, rawBody))
+    }
 
     private fun webhookBody(eventId: String, eventType: String, extra: String = "") = """
         {"eventId":"$eventId","eventType":"$eventType","providerPaymentId":"$providerPaymentId"$extra}

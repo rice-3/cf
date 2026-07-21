@@ -84,7 +84,9 @@ class CloseFundingService(
             auditPort.record(audit, "PROJECT_FUNDING_CLOSE", RESOURCE_TYPE, project.id.value, "SUCCESS")
             log.info(
                 "BAT-002 closed funding: projectId={} status={} raised={}",
-                project.id.value, project.status, raised.amount,
+                project.id.value,
+                project.status,
+                raised.amount,
             )
         }
         return targets.size

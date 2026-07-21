@@ -39,15 +39,17 @@ class MockNotificationSender : NotificationSenderPort {
         }
         log.info(
             "Mock notification sent: channel={} template={} recipientHash={} subject=\"{}\" body=\"{}\"",
-            channel, templateId, recipientAddress?.let { hashPrefix(it) } ?: "-",
-            rendered.subject, rendered.textBody.replace("\n", " / "),
+            channel,
+            templateId,
+            recipientAddress?.let { hashPrefix(it) } ?: "-",
+            rendered.subject,
+            rendered.textBody.replace("\n", " / "),
         )
         return SendResult.Sent("mock_${UUID.randomUUID()}")
     }
 
-    private fun hashPrefix(value: String): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest(value.toByteArray())
-            .joinToString("") { "%02x".format(it) }
-            .take(12)
+    private fun hashPrefix(value: String): String = MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray())
+        .joinToString("") { "%02x".format(it) }
+        .take(12)
 }

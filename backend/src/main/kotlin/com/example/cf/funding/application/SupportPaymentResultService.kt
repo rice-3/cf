@@ -21,7 +21,8 @@ class SupportPaymentResultService(
     private val outbox: OutboxAppendPort,
     private val auditPort: AuditRecordPort,
     private val clock: Clock,
-) : SupportPaymentResultPort, SupportRefundPort {
+) : SupportPaymentResultPort,
+    SupportRefundPort {
 
     @Transactional
     override fun confirmBySupportId(supportId: SupportId, audit: AuditContext) {
@@ -75,7 +76,6 @@ class SupportPaymentResultService(
         auditPort.record(audit, "SUPPORT_REFUND_FAILED", "Support", support.id.value, "FAILURE")
     }
 
-    private fun getForUpdate(supportId: SupportId) =
-        supportRepository.findByIdForUpdate(supportId)
-            ?: throw ResourceNotFoundException("SUPPORT_NOT_FOUND", "Support ${supportId.value} is not found")
+    private fun getForUpdate(supportId: SupportId) = supportRepository.findByIdForUpdate(supportId)
+        ?: throw ResourceNotFoundException("SUPPORT_NOT_FOUND", "Support ${supportId.value} is not found")
 }

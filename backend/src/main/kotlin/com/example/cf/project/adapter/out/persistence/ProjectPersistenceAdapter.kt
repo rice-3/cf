@@ -131,24 +131,21 @@ class ProjectPersistenceAdapter(
     private val historyRepository: ProjectStatusHistoryJpaRepository,
     private val rewardPlanRepository: RewardPlanJpaRepository,
     private val idGenerator: UlidGenerator,
-) : ProjectRepository, ProjectSearchQuery, ProjectReferenceQuery {
+) : ProjectRepository,
+    ProjectSearchQuery,
+    ProjectReferenceQuery {
 
     // ---- ProjectRepository（更新系Port） ------------------------------------
 
-    override fun findById(id: ProjectId): Project? =
-        jpaRepository.findById(id.value).orElse(null)?.toDomain()
+    override fun findById(id: ProjectId): Project? = jpaRepository.findById(id.value).orElse(null)?.toDomain()
 
-    override fun findByIdForUpdate(id: ProjectId): Project? =
-        jpaRepository.findWithLockByProjectId(id.value)?.toDomain()
+    override fun findByIdForUpdate(id: ProjectId): Project? = jpaRepository.findWithLockByProjectId(id.value)?.toDomain()
 
-    override fun findByOwner(ownerUserId: UserId): List<Project> =
-        jpaRepository.findByOwnerUserIdOrderByUpdatedAtDesc(ownerUserId.value).map { it.toDomain() }
+    override fun findByOwner(ownerUserId: UserId): List<Project> = jpaRepository.findByOwnerUserIdOrderByUpdatedAtDesc(ownerUserId.value).map { it.toDomain() }
 
-    override fun lockPublishTargets(now: java.time.Instant, limit: Int): List<Project> =
-        jpaRepository.lockPublishTargets(now, limit).map { it.toDomain() }
+    override fun lockPublishTargets(now: java.time.Instant, limit: Int): List<Project> = jpaRepository.lockPublishTargets(now, limit).map { it.toDomain() }
 
-    override fun lockFundingCloseTargets(now: java.time.Instant, limit: Int): List<Project> =
-        jpaRepository.lockFundingCloseTargets(now, limit).map { it.toDomain() }
+    override fun lockFundingCloseTargets(now: java.time.Instant, limit: Int): List<Project> = jpaRepository.lockFundingCloseTargets(now, limit).map { it.toDomain() }
 
     override fun save(project: Project) {
         val existing = jpaRepository.findById(project.id.value).orElse(null)
@@ -266,75 +263,69 @@ class ProjectPersistenceAdapter(
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    override fun listByOwner(ownerUserId: UserId): List<ProjectListItem> =
-        jpaRepository.findByOwnerUserIdOrderByUpdatedAtDesc(ownerUserId.value).map { it.toListItem() }
+    override fun listByOwner(ownerUserId: UserId): List<ProjectListItem> = jpaRepository.findByOwnerUserIdOrderByUpdatedAtDesc(ownerUserId.value).map { it.toListItem() }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    override fun findDetail(projectId: ProjectId): ProjectDetailView? =
-        jpaRepository.findById(projectId.value).orElse(null)?.let { entity ->
-            ProjectDetailView(
-                projectId = entity.projectId,
-                ownerUserId = entity.ownerUserId,
-                title = entity.title,
-                summary = entity.summary,
-                body = entity.body,
-                targetAmount = entity.targetAmount,
-                fundingType = FundingType.valueOf(entity.fundingType),
-                startAt = entity.startAt,
-                endAt = entity.endAt,
-                status = ProjectStatus.valueOf(entity.status),
-                mainFileId = entity.mainFileId,
-                rewardPlans = entity.rewardPlans
-                    .sortedBy { it.displayOrder }
-                    .map {
-                        RewardPlanView(
-                            rewardPlanId = it.rewardPlanId,
-                            name = it.name,
-                            description = it.description,
-                            unitAmount = it.unitAmount,
-                            quantityLimit = it.quantityLimit,
-                            remainingQuantity = it.quantityLimit?.minus(it.reservedQuantity),
-                            displayOrder = it.displayOrder,
-                        )
-                    },
-                version = entity.version,
-                updatedAt = entity.updatedAt,
-            )
-        }
+    override fun findDetail(projectId: ProjectId): ProjectDetailView? = jpaRepository.findById(projectId.value).orElse(null)?.let { entity ->
+        ProjectDetailView(
+            projectId = entity.projectId,
+            ownerUserId = entity.ownerUserId,
+            title = entity.title,
+            summary = entity.summary,
+            body = entity.body,
+            targetAmount = entity.targetAmount,
+            fundingType = FundingType.valueOf(entity.fundingType),
+            startAt = entity.startAt,
+            endAt = entity.endAt,
+            status = ProjectStatus.valueOf(entity.status),
+            mainFileId = entity.mainFileId,
+            rewardPlans = entity.rewardPlans
+                .sortedBy { it.displayOrder }
+                .map {
+                    RewardPlanView(
+                        rewardPlanId = it.rewardPlanId,
+                        name = it.name,
+                        description = it.description,
+                        unitAmount = it.unitAmount,
+                        quantityLimit = it.quantityLimit,
+                        remainingQuantity = it.quantityLimit?.minus(it.reservedQuantity),
+                        displayOrder = it.displayOrder,
+                    )
+                },
+            version = entity.version,
+            updatedAt = entity.updatedAt,
+        )
+    }
 
     // ---- ProjectReferenceQuery（他コンテキスト公開契約） --------------------
 
-    override fun findTitles(projectIds: Collection<String>): Map<String, String> =
-        if (projectIds.isEmpty()) {
-            emptyMap()
-        } else {
-            jpaRepository.findAllById(projectIds).associate { it.projectId to it.title }
-        }
+    override fun findTitles(projectIds: Collection<String>): Map<String, String> = if (projectIds.isEmpty()) {
+        emptyMap()
+    } else {
+        jpaRepository.findAllById(projectIds).associate { it.projectId to it.title }
+    }
 
-    override fun findSupportability(projectId: ProjectId): ProjectSupportabilityView? =
-        jpaRepository.findById(projectId.value).orElse(null)?.let {
-            ProjectSupportabilityView(
-                projectId = it.projectId,
-                status = ProjectStatus.valueOf(it.status),
-                startAt = it.startAt,
-                endAt = it.endAt,
-            )
-        }
+    override fun findSupportability(projectId: ProjectId): ProjectSupportabilityView? = jpaRepository.findById(projectId.value).orElse(null)?.let {
+        ProjectSupportabilityView(
+            projectId = it.projectId,
+            status = ProjectStatus.valueOf(it.status),
+            startAt = it.startAt,
+            endAt = it.endAt,
+        )
+    }
 
-    override fun findRewardPlan(rewardPlanId: String): RewardPlanReference? =
-        rewardPlanRepository.findById(rewardPlanId).orElse(null)?.let {
-            RewardPlanReference(
-                rewardPlanId = it.rewardPlanId,
-                projectId = it.project?.projectId ?: "",
-                unitAmount = it.unitAmount,
-                quantityLimit = it.quantityLimit,
-                reservedQuantity = it.reservedQuantity,
-                version = it.version,
-            )
-        }
+    override fun findRewardPlan(rewardPlanId: String): RewardPlanReference? = rewardPlanRepository.findById(rewardPlanId).orElse(null)?.let {
+        RewardPlanReference(
+            rewardPlanId = it.rewardPlanId,
+            projectId = it.project?.projectId ?: "",
+            unitAmount = it.unitAmount,
+            quantityLimit = it.quantityLimit,
+            reservedQuantity = it.reservedQuantity,
+            version = it.version,
+        )
+    }
 
-    override fun reserveRewardQuantity(rewardPlanId: String, quantity: Int, expectedVersion: Long): Boolean =
-        rewardPlanRepository.reserveQuantity(rewardPlanId, quantity, expectedVersion) == 1
+    override fun reserveRewardQuantity(rewardPlanId: String, quantity: Int, expectedVersion: Long): Boolean = rewardPlanRepository.reserveQuantity(rewardPlanId, quantity, expectedVersion) == 1
 
     private fun ProjectJpaEntity.toListItem() = ProjectListItem(
         projectId = projectId,

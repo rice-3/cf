@@ -125,21 +125,19 @@ class ReviewPersistenceAdapter(
     private val historyRepository: ReviewHistoryJpaRepository,
     private val projectReferenceQuery: ProjectReferenceQuery,
     private val idGenerator: UlidGenerator,
-) : ReviewRepository, ReviewHistoryPort, ReviewSearchQuery {
+) : ReviewRepository,
+    ReviewHistoryPort,
+    ReviewSearchQuery {
 
     // ---- ReviewRepository ----------------------------------------------------
 
-    override fun findById(id: ReviewId): ReviewRequest? =
-        jpaRepository.findById(id.value).orElse(null)?.toDomain()
+    override fun findById(id: ReviewId): ReviewRequest? = jpaRepository.findById(id.value).orElse(null)?.toDomain()
 
-    override fun findByIdForUpdate(id: ReviewId): ReviewRequest? =
-        jpaRepository.findWithLockByReviewId(id.value)?.toDomain()
+    override fun findByIdForUpdate(id: ReviewId): ReviewRequest? = jpaRepository.findWithLockByReviewId(id.value)?.toDomain()
 
-    override fun findActiveByProjectId(projectId: ProjectId): ReviewRequest? =
-        jpaRepository.findActiveByProjectId(projectId.value)?.toDomain()
+    override fun findActiveByProjectId(projectId: ProjectId): ReviewRequest? = jpaRepository.findActiveByProjectId(projectId.value)?.toDomain()
 
-    override fun findByStatus(status: ReviewStatus): List<ReviewRequest> =
-        jpaRepository.findByStatus(status.name).map { it.toDomain() }
+    override fun findByStatus(status: ReviewStatus): List<ReviewRequest> = jpaRepository.findByStatus(status.name).map { it.toDomain() }
 
     override fun save(review: ReviewRequest) {
         val entity = jpaRepository.findById(review.id.value).orElse(ReviewJpaEntity())
@@ -217,26 +215,25 @@ class ReviewPersistenceAdapter(
         )
     }
 
-    override fun findDetail(reviewId: String): ReviewDetailView? =
-        jpaRepository.findById(reviewId).orElse(null)?.let { entity ->
-            ReviewDetailView(
-                reviewId = entity.reviewId,
-                projectId = entity.projectId,
-                status = ReviewStatus.valueOf(entity.status),
-                reviewerUserId = entity.reviewerUserId,
-                submittedAt = entity.submittedAt,
-                startedAt = entity.startedAt,
-                completedAt = entity.completedAt,
-                version = entity.version,
-                histories = historyRepository.findByReviewIdOrderByActedAtDesc(entity.reviewId).map {
-                    ReviewHistoryView(
-                        action = it.action,
-                        reasonCode = it.reasonCode,
-                        comment = it.comment,
-                        actedAt = it.actedAt,
-                        actedBy = it.actedBy,
-                    )
-                },
-            )
-        }
+    override fun findDetail(reviewId: String): ReviewDetailView? = jpaRepository.findById(reviewId).orElse(null)?.let { entity ->
+        ReviewDetailView(
+            reviewId = entity.reviewId,
+            projectId = entity.projectId,
+            status = ReviewStatus.valueOf(entity.status),
+            reviewerUserId = entity.reviewerUserId,
+            submittedAt = entity.submittedAt,
+            startedAt = entity.startedAt,
+            completedAt = entity.completedAt,
+            version = entity.version,
+            histories = historyRepository.findByReviewIdOrderByActedAtDesc(entity.reviewId).map {
+                ReviewHistoryView(
+                    action = it.action,
+                    reasonCode = it.reasonCode,
+                    comment = it.comment,
+                    actedAt = it.actedAt,
+                    actedBy = it.actedBy,
+                )
+            },
+        )
+    }
 }

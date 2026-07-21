@@ -74,12 +74,11 @@ data class CompleteUploadResponse(
     val downloadReference: String,
 )
 
-private fun parseFileId(raw: String): FileId =
-    if (ULID_PATTERN.matches(raw)) {
-        FileId(raw)
-    } else {
-        throw ResourceNotFoundException("FILE_NOT_FOUND", "File $raw is not found")
-    }
+private fun parseFileId(raw: String): FileId = if (ULID_PATTERN.matches(raw)) {
+    FileId(raw)
+} else {
+    throw ResourceNotFoundException("FILE_NOT_FOUND", "File $raw is not found")
+}
 
 /**
  * ファイルAPI（API-FL-001/002、詳細設計 §6.10〜6.11）。認証済み利用者のみ。

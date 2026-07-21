@@ -126,17 +126,13 @@ class NotificationPersistenceAdapter(
     private val idGenerator: UlidGenerator,
 ) : NotificationRepository {
 
-    override fun findById(id: NotificationId): Notification? =
-        jpaRepository.findById(id.value).orElse(null)?.toDomain()
+    override fun findById(id: NotificationId): Notification? = jpaRepository.findById(id.value).orElse(null)?.toDomain()
 
-    override fun findByIdForUpdate(id: NotificationId): Notification? =
-        jpaRepository.findWithLockByNotificationId(id.value)?.toDomain()
+    override fun findByIdForUpdate(id: NotificationId): Notification? = jpaRepository.findWithLockByNotificationId(id.value)?.toDomain()
 
-    override fun existsByBusinessKey(businessKey: String, channel: NotificationChannel): Boolean =
-        jpaRepository.existsByBusinessKeyAndChannel(businessKey, channel.name)
+    override fun existsByBusinessKey(businessKey: String, channel: NotificationChannel): Boolean = jpaRepository.existsByBusinessKeyAndChannel(businessKey, channel.name)
 
-    override fun lockSendableBatch(now: Instant, limit: Int): List<Notification> =
-        jpaRepository.lockSendableBatch(now, limit).map { it.toDomain() }
+    override fun lockSendableBatch(now: Instant, limit: Int): List<Notification> = jpaRepository.lockSendableBatch(now, limit).map { it.toDomain() }
 
     override fun save(notification: Notification) {
         val entity = jpaRepository.findById(notification.id.value).orElse(NotificationJpaEntity())

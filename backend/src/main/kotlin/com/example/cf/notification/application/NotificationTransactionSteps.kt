@@ -39,8 +39,7 @@ class NotificationTransactionSteps(
 
     // SELECT ... FOR UPDATE は読み取り専用トランザクションでは実行できないため readOnly にしない
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    fun lockTargets(limit: Int): List<NotificationId> =
-        repository.lockSendableBatch(clock.instant(), limit).map { it.id }
+    fun lockTargets(limit: Int): List<NotificationId> = repository.lockSendableBatch(clock.instant(), limit).map { it.id }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun startSending(notificationId: NotificationId): SendingTarget? {
@@ -83,7 +82,9 @@ class NotificationTransactionSteps(
             auditPort.record(audit, "NOTIFICATION_FAILED", "Notification", notificationId.value, "FAILURE")
             log.error(
                 "Notification permanently failed: notificationId={} template={} errorCode={}",
-                notificationId.value, notification.templateId, errorCode,
+                notificationId.value,
+                notification.templateId,
+                errorCode,
             )
         }
     }

@@ -3,7 +3,6 @@ package com.example.cf.shared.outbox
 import com.example.cf.shared.kernel.event.DomainEvent
 import com.example.cf.shared.kernel.id.CorrelationId
 import com.example.cf.shared.kernel.id.UlidGenerator
-import tools.jackson.databind.ObjectMapper
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
@@ -15,6 +14,7 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Repository
+import tools.jackson.databind.ObjectMapper
 import java.time.Clock
 import java.time.Instant
 

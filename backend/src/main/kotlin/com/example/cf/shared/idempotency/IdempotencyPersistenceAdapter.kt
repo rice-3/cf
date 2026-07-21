@@ -35,7 +35,9 @@ class IdempotencyPersistenceAdapter(
               from idempotency_record
              where scope = ? and actor_id = ? and idempotency_key = ?
             """.trimIndent(),
-            scope, actorId, key.value,
+            scope,
+            actorId,
+            key.value,
         )
         if (rows.isEmpty()) {
             insertProcessing(scope, actorId, key, requestHash)
@@ -82,8 +84,11 @@ class IdempotencyPersistenceAdapter(
                set status = 'COMPLETED', response_status = ?, response_body = ?::jsonb
              where scope = ? and actor_id = ? and idempotency_key = ?
             """.trimIndent(),
-            responseStatus, objectMapper.writeValueAsString(responseBody),
-            scope, actorId, key.value,
+            responseStatus,
+            objectMapper.writeValueAsString(responseBody),
+            scope,
+            actorId,
+            key.value,
         )
     }
 
@@ -98,7 +103,8 @@ class IdempotencyPersistenceAdapter(
                   limit ?
              )
             """.trimIndent(),
-            Timestamp.from(clock.instant()), limit,
+            Timestamp.from(clock.instant()),
+            limit,
         )
     }
 
@@ -111,8 +117,12 @@ class IdempotencyPersistenceAdapter(
                     (scope, actor_id, idempotency_key, request_hash, status, expires_at, created_at)
                 values (?, ?, ?, ?, 'PROCESSING', ?, ?)
                 """.trimIndent(),
-                scope, actorId, key.value, requestHash,
-                Timestamp.from(now.plus(RETENTION)), Timestamp.from(now),
+                scope,
+                actorId,
+                key.value,
+                requestHash,
+                Timestamp.from(now.plus(RETENTION)),
+                Timestamp.from(now),
             )
         } catch (e: DuplicateKeyException) {
             // 同時実行の後着（先行コミット後に一意制約違反となる）
@@ -129,8 +139,11 @@ class IdempotencyPersistenceAdapter(
              where scope = ? and actor_id = ? and idempotency_key = ?
             """.trimIndent(),
             requestHash,
-            Timestamp.from(clock.instant().plus(RETENTION)), Timestamp.from(clock.instant()),
-            scope, actorId, key.value,
+            Timestamp.from(clock.instant().plus(RETENTION)),
+            Timestamp.from(clock.instant()),
+            scope,
+            actorId,
+            key.value,
         )
     }
 

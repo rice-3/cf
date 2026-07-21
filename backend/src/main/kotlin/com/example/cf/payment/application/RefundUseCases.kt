@@ -2,8 +2,8 @@ package com.example.cf.payment.application
 
 import com.example.cf.audit.application.AuditRecordPort
 import com.example.cf.audit.application.record
-import com.example.cf.funding.application.SupportRefundPort
 import com.example.cf.funding.application.SupportReferenceQuery
+import com.example.cf.funding.application.SupportRefundPort
 import com.example.cf.payment.domain.model.Refund
 import com.example.cf.payment.domain.model.RefundReasonCode
 import com.example.cf.payment.domain.model.RefundStatus
@@ -19,10 +19,8 @@ import com.example.cf.shared.kernel.id.RefundId
 import com.example.cf.shared.kernel.id.SupportId
 import com.example.cf.shared.kernel.id.UlidGenerator
 import com.example.cf.shared.kernel.money.Money
-import com.example.cf.shared.outbox.OutboxAppendPort
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 

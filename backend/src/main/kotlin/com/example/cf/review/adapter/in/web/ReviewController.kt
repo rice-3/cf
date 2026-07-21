@@ -82,12 +82,11 @@ private fun ReviewActionResult.toResponse() = ReviewActionResponse(
     actedAt = actedAt,
 )
 
-private fun parseReviewId(raw: String): ReviewId =
-    if (ULID_PATTERN.matches(raw)) {
-        ReviewId(raw)
-    } else {
-        throw ResourceNotFoundException("REVIEW_NOT_FOUND", "Review $raw is not found")
-    }
+private fun parseReviewId(raw: String): ReviewId = if (ULID_PATTERN.matches(raw)) {
+    ReviewId(raw)
+} else {
+    throw ResourceNotFoundException("REVIEW_NOT_FOUND", "Review $raw is not found")
+}
 
 /**
  * 審査API（API-RV-001〜006、基本設計 §6.4）。

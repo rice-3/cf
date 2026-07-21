@@ -1,20 +1,13 @@
 package com.example.cf.payment.application
 
-import com.example.cf.audit.application.AuditRecordPort
-import com.example.cf.audit.application.record
-import com.example.cf.funding.application.SupportPaymentResultPort
 import com.example.cf.payment.domain.model.PaymentStatus
 import com.example.cf.payment.domain.repository.PaymentRepository
 import com.example.cf.shared.kernel.AuditContext
 import com.example.cf.shared.kernel.error.DependencyException
 import com.example.cf.shared.kernel.error.ResourceNotFoundException
 import com.example.cf.shared.kernel.id.PaymentId
-import com.example.cf.shared.outbox.OutboxAppendPort
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Propagation
-import org.springframework.transaction.annotation.Transactional
-import java.time.Clock
 
 private const val RESOURCE_TYPE = "Payment"
 

@@ -29,12 +29,11 @@ import javax.sql.DataSource
 class SchedulingConfig {
 
     @Bean
-    fun lockProvider(dataSource: DataSource): LockProvider =
-        JdbcTemplateLockProvider(
-            JdbcTemplateLockProvider.Configuration.builder()
-                .withJdbcTemplate(JdbcTemplate(dataSource))
-                // アプリとDBの時計ずれを避け、DB時刻でロック期限を判定する
-                .usingDbTime()
-                .build(),
-        )
+    fun lockProvider(dataSource: DataSource): LockProvider = JdbcTemplateLockProvider(
+        JdbcTemplateLockProvider.Configuration.builder()
+            .withJdbcTemplate(JdbcTemplate(dataSource))
+            // アプリとDBの時計ずれを避け、DB時刻でロック期限を判定する
+            .usingDbTime()
+            .build(),
+    )
 }

@@ -7,6 +7,31 @@ plugins {
     kotlin("plugin.jpa") version "2.4.10"
     id("org.springframework.boot") version "4.1.0"
     id("io.spring.dependency-management") version "1.1.7"
+    id("com.diffplug.spotless") version "7.0.2"
+}
+
+// コード整形（format品質ゲート、詳細設計 §13.4）。
+// spotlessCheck は check → build に自動で組み込まれるため、CIの `gradlew build` で検証される。
+// Kotlin主体のためktlintを適用。Java向けの javac 内部API依存フォーマッタは JDK 25 で不安定なため
+// 現時点ではKotlinのみを対象とする（Java整形は残タスク）。
+spotless {
+    val ktlintOverrides = mapOf(
+        "ktlint_code_style" to "intellij_idea",
+        // 日本語コメント行が長くなるため行長ルールは無効化。
+        "ktlint_standard_max-line-length" to "disabled",
+        // ヘキサゴナルの adapter.in.* は `in`（Kotlin予約語）をバッククォート必須とするため誤検知する。
+        "ktlint_standard_package-name" to "disabled",
+        // 関連宣言を1ファイルにまとめる方針のため filename ルールは無効化。
+        "ktlint_standard_filename" to "disabled",
+    )
+    kotlin {
+        target("src/**/*.kt")
+        ktlint("1.5.0").editorConfigOverride(ktlintOverrides)
+    }
+    kotlinGradle {
+        target("*.gradle.kts")
+        ktlint("1.5.0").editorConfigOverride(ktlintOverrides)
+    }
 }
 
 group = "com.example.cf"

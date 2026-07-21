@@ -72,22 +72,19 @@ class SupportFlowIntegrationTest {
     private var limitedRewardId: String = ""
     private var supportId: String = ""
 
-    private fun headers(userId: String, roles: String, idempotencyKey: String? = null): HttpHeaders =
-        HttpHeaders().apply {
-            contentType = MediaType.APPLICATION_JSON
-            set("X-Dev-User", userId)
-            set("X-Dev-Roles", roles)
-            idempotencyKey?.let { set("Idempotency-Key", it) }
-        }
+    private fun headers(userId: String, roles: String, idempotencyKey: String? = null): HttpHeaders = HttpHeaders().apply {
+        contentType = MediaType.APPLICATION_JSON
+        set("X-Dev-User", userId)
+        set("X-Dev-Roles", roles)
+        idempotencyKey?.let { set("Idempotency-Key", it) }
+    }
 
     private fun ownerHeaders() = headers(DevUserSeeder.DEV_OWNER_ID, "OWNER,SUPPORTER")
 
-    private fun supporterHeaders(idempotencyKey: String? = null) =
-        headers(DevUserSeeder.DEV_SUPPORTER_ID, "SUPPORTER", idempotencyKey)
+    private fun supporterHeaders(idempotencyKey: String? = null) = headers(DevUserSeeder.DEV_SUPPORTER_ID, "SUPPORTER", idempotencyKey)
 
     @Suppress("UNCHECKED_CAST")
-    private fun dataOf(body: Map<*, *>?): Map<String, Any?> =
-        body?.get("data") as Map<String, Any?>
+    private fun dataOf(body: Map<*, *>?): Map<String, Any?> = body?.get("data") as Map<String, Any?>
 
     private fun supportBody(
         rewardPlanId: String? = null,
@@ -222,7 +219,8 @@ class SupportFlowIntegrationTest {
         val count = jdbcTemplate.queryForObject(
             "select count(*) from support where supporter_user_id = ? and project_id = ?",
             Int::class.java,
-            DevUserSeeder.DEV_SUPPORTER_ID, projectId,
+            DevUserSeeder.DEV_SUPPORTER_ID,
+            projectId,
         ) ?: 0
         assertEquals(1, count, "冪等再送でSupportが二重作成されないこと")
     }

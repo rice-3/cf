@@ -16,8 +16,7 @@ import java.security.MessageDigest
 class CurrentUserSupport {
 
     /** 認証必須APIで使用する。未認証は401。 */
-    fun requireCurrentUser(): CurrentUser =
-        findCurrentUser() ?: throw AuthenticationRequiredException()
+    fun requireCurrentUser(): CurrentUser = findCurrentUser() ?: throw AuthenticationRequiredException()
 
     /** 公開APIで任意認証として使用する。 */
     fun findCurrentUser(): CurrentUser? {
@@ -32,8 +31,7 @@ class CurrentUserSupport {
         clientIpHash = request.remoteAddr?.let { sha256(it) },
     )
 
-    private fun sha256(value: String): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest(value.toByteArray())
-            .joinToString("") { "%02x".format(it) }
+    private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray())
+        .joinToString("") { "%02x".format(it) }
 }

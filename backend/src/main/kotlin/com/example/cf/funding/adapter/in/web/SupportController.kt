@@ -62,19 +62,17 @@ data class CancelSupportResponse(
     val status: String,
 )
 
-private fun parseSupportId(raw: String): SupportId =
-    if (ULID_PATTERN.matches(raw)) {
-        SupportId(raw)
-    } else {
-        throw ResourceNotFoundException("SUPPORT_NOT_FOUND", "Support $raw is not found")
-    }
+private fun parseSupportId(raw: String): SupportId = if (ULID_PATTERN.matches(raw)) {
+    SupportId(raw)
+} else {
+    throw ResourceNotFoundException("SUPPORT_NOT_FOUND", "Support $raw is not found")
+}
 
-private fun parseProjectId(raw: String): ProjectId =
-    if (ULID_PATTERN.matches(raw)) {
-        ProjectId(raw)
-    } else {
-        throw ResourceNotFoundException("PROJECT_NOT_FOUND", "Project $raw is not found")
-    }
+private fun parseProjectId(raw: String): ProjectId = if (ULID_PATTERN.matches(raw)) {
+    ProjectId(raw)
+} else {
+    throw ResourceNotFoundException("PROJECT_NOT_FOUND", "Project $raw is not found")
+}
 
 /**
  * 支援API（API-FD-001〜004、基本設計 §6.5）。

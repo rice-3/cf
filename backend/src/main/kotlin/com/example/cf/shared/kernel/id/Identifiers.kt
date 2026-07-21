@@ -11,7 +11,9 @@ private fun requireUlid(value: String, name: String) {
 
 @JvmInline
 value class UserId(val value: String) {
-    init { requireUlid(value, "UserId") }
+    init {
+        requireUlid(value, "UserId")
+    }
     companion object {
         fun newId(generator: UlidGenerator) = UserId(generator.next())
     }
@@ -19,7 +21,9 @@ value class UserId(val value: String) {
 
 @JvmInline
 value class ProjectId(val value: String) {
-    init { requireUlid(value, "ProjectId") }
+    init {
+        requireUlid(value, "ProjectId")
+    }
     companion object {
         fun newId(generator: UlidGenerator) = ProjectId(generator.next())
     }
@@ -27,7 +31,9 @@ value class ProjectId(val value: String) {
 
 @JvmInline
 value class RewardPlanId(val value: String) {
-    init { requireUlid(value, "RewardPlanId") }
+    init {
+        requireUlid(value, "RewardPlanId")
+    }
     companion object {
         fun newId(generator: UlidGenerator) = RewardPlanId(generator.next())
     }
@@ -35,7 +41,9 @@ value class RewardPlanId(val value: String) {
 
 @JvmInline
 value class ReviewId(val value: String) {
-    init { requireUlid(value, "ReviewId") }
+    init {
+        requireUlid(value, "ReviewId")
+    }
     companion object {
         fun newId(generator: UlidGenerator) = ReviewId(generator.next())
     }
@@ -43,7 +51,9 @@ value class ReviewId(val value: String) {
 
 @JvmInline
 value class FileId(val value: String) {
-    init { requireUlid(value, "FileId") }
+    init {
+        requireUlid(value, "FileId")
+    }
     companion object {
         fun newId(generator: UlidGenerator) = FileId(generator.next())
     }
@@ -51,7 +61,9 @@ value class FileId(val value: String) {
 
 @JvmInline
 value class SupportId(val value: String) {
-    init { requireUlid(value, "SupportId") }
+    init {
+        requireUlid(value, "SupportId")
+    }
     companion object {
         fun newId(generator: UlidGenerator) = SupportId(generator.next())
     }
@@ -59,7 +71,9 @@ value class SupportId(val value: String) {
 
 @JvmInline
 value class SupportItemId(val value: String) {
-    init { requireUlid(value, "SupportItemId") }
+    init {
+        requireUlid(value, "SupportItemId")
+    }
     companion object {
         fun newId(generator: UlidGenerator) = SupportItemId(generator.next())
     }
@@ -67,7 +81,9 @@ value class SupportItemId(val value: String) {
 
 @JvmInline
 value class PaymentId(val value: String) {
-    init { requireUlid(value, "PaymentId") }
+    init {
+        requireUlid(value, "PaymentId")
+    }
     companion object {
         fun newId(generator: UlidGenerator) = PaymentId(generator.next())
     }
@@ -75,7 +91,9 @@ value class PaymentId(val value: String) {
 
 @JvmInline
 value class RefundId(val value: String) {
-    init { requireUlid(value, "RefundId") }
+    init {
+        requireUlid(value, "RefundId")
+    }
     companion object {
         fun newId(generator: UlidGenerator) = RefundId(generator.next())
     }
@@ -83,7 +101,9 @@ value class RefundId(val value: String) {
 
 @JvmInline
 value class NotificationId(val value: String) {
-    init { requireUlid(value, "NotificationId") }
+    init {
+        requireUlid(value, "NotificationId")
+    }
     companion object {
         fun newId(generator: UlidGenerator) = NotificationId(generator.next())
     }
@@ -91,7 +111,9 @@ value class NotificationId(val value: String) {
 
 @JvmInline
 value class EventId(val value: String) {
-    init { requireUlid(value, "EventId") }
+    init {
+        requireUlid(value, "EventId")
+    }
     companion object {
         fun newId(generator: UlidGenerator) = EventId(generator.next())
     }
@@ -99,7 +121,9 @@ value class EventId(val value: String) {
 
 @JvmInline
 value class AuditId(val value: String) {
-    init { requireUlid(value, "AuditId") }
+    init {
+        requireUlid(value, "AuditId")
+    }
     companion object {
         fun newId(generator: UlidGenerator) = AuditId(generator.next())
     }
@@ -107,7 +131,9 @@ value class AuditId(val value: String) {
 
 @JvmInline
 value class HistoryId(val value: String) {
-    init { requireUlid(value, "HistoryId") }
+    init {
+        requireUlid(value, "HistoryId")
+    }
     companion object {
         fun newId(generator: UlidGenerator) = HistoryId(generator.next())
     }

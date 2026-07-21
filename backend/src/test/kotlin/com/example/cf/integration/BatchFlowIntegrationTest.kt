@@ -93,13 +93,12 @@ class BatchFlowIntegrationTest {
     private var supportId: String = ""
     private var paymentId: String = ""
 
-    private fun headers(userId: String, roles: String, idempotencyKey: String? = null) =
-        HttpHeaders().apply {
-            contentType = MediaType.APPLICATION_JSON
-            set("X-Dev-User", userId)
-            set("X-Dev-Roles", roles)
-            idempotencyKey?.let { set("Idempotency-Key", it) }
-        }
+    private fun headers(userId: String, roles: String, idempotencyKey: String? = null) = HttpHeaders().apply {
+        contentType = MediaType.APPLICATION_JSON
+        set("X-Dev-User", userId)
+        set("X-Dev-Roles", roles)
+        idempotencyKey?.let { set("Idempotency-Key", it) }
+    }
 
     private fun ownerHeaders() = headers(DevUserSeeder.DEV_OWNER_ID, "OWNER,SUPPORTER")
 
@@ -174,13 +173,17 @@ class BatchFlowIntegrationTest {
         assertEquals(HttpStatus.ACCEPTED, support.statusCode, "body=${support.body}")
         supportId = dataOf(support.body)["supportId"] as String
         paymentId = jdbcTemplate.queryForObject(
-            "select payment_id from support where support_id = ?", String::class.java, supportId,
+            "select payment_id from support where support_id = ?",
+            String::class.java,
+            supportId,
         )!!
 
         // BAT-006 Outbox配送 → Sandboxが受け付けPROCESSINGへ
         outboxWorker.publishBatch()
         val providerPaymentId = jdbcTemplate.queryForObject(
-            "select provider_payment_id from payment where payment_id = ?", String::class.java, paymentId,
+            "select provider_payment_id from payment where payment_id = ?",
+            String::class.java,
+            paymentId,
         )!!
 
         // 決済成功Webhookで確定させる
@@ -221,7 +224,8 @@ class BatchFlowIntegrationTest {
 
         val failedEvents = jdbcTemplate.queryForObject(
             "select count(*) from outbox_event where event_type = 'ProjectFailed' and aggregate_id = ?",
-            Int::class.java, projectId,
+            Int::class.java,
+            projectId,
         ) ?: 0
         assertEquals(1, failedEvents, "ProjectFailedが1件積まれること")
     }
@@ -232,7 +236,9 @@ class BatchFlowIntegrationTest {
         outboxWorker.publishBatch()
 
         val refundCount = jdbcTemplate.queryForObject(
-            "select count(*) from refund where support_id = ?", Int::class.java, supportId,
+            "select count(*) from refund where support_id = ?",
+            Int::class.java,
+            supportId,
         ) ?: 0
         assertEquals(1, refundCount, "返金要求が作成されること")
         assertEquals(
@@ -254,7 +260,9 @@ class BatchFlowIntegrationTest {
         outboxWorker.publishBatch()
 
         val refundCount = jdbcTemplate.queryForObject(
-            "select count(*) from refund where support_id = ?", Int::class.java, supportId,
+            "select count(*) from refund where support_id = ?",
+            Int::class.java,
+            supportId,
         ) ?: 0
         assertEquals(1, refundCount, "重複受信でも返金は1件のまま")
     }
@@ -286,7 +294,8 @@ class BatchFlowIntegrationTest {
         outboxWorker.publishBatch()
 
         val pending = jdbcTemplate.queryForObject(
-            "select count(*) from notification where template_id = 'REFUND_COMPLETED'", Int::class.java,
+            "select count(*) from notification where template_id = 'REFUND_COMPLETED'",
+            Int::class.java,
         ) ?: 0
         assertEquals(1, pending, "返金完了通知が登録されること")
 
@@ -295,12 +304,14 @@ class BatchFlowIntegrationTest {
         assertEquals(
             "SENT",
             jdbcTemplate.queryForObject(
-                "select status from notification where template_id = 'REFUND_COMPLETED'", String::class.java,
+                "select status from notification where template_id = 'REFUND_COMPLETED'",
+                String::class.java,
             ),
         )
 
         val deliveries = jdbcTemplate.queryForObject(
-            "select count(*) from notification_delivery where result = 'SUCCESS'", Int::class.java,
+            "select count(*) from notification_delivery where result = 'SUCCESS'",
+            Int::class.java,
         ) ?: 0
         assertTrue(deliveries >= 1, "送信試行が記録されること: $deliveries")
     }
@@ -328,7 +339,9 @@ class BatchFlowIntegrationTest {
         assertEquals(
             "DELETED",
             jdbcTemplate.queryForObject(
-                "select status from file_object where file_id = ?", String::class.java, staleFileId,
+                "select status from file_object where file_id = ?",
+                String::class.java,
+                staleFileId,
             ),
         )
     }
@@ -339,7 +352,8 @@ class BatchFlowIntegrationTest {
         // Order3でProjectFailedが発行され、Order4以降のpublishBatchでNotificationEventHandlerへ配送済み
         val count = jdbcTemplate.queryForObject(
             "select count(*) from notification where template_id = 'PROJECT_FAILED' and recipient_user_id = ?",
-            Int::class.java, DevUserSeeder.DEV_OWNER_ID,
+            Int::class.java,
+            DevUserSeeder.DEV_OWNER_ID,
         ) ?: 0
         assertEquals(1, count, "起案者向けPROJECT_FAILED通知が1件登録されること")
     }
@@ -355,7 +369,8 @@ class BatchFlowIntegrationTest {
                 (scope, actor_id, idempotency_key, request_hash, status, expires_at, created_at)
             values ('TEST', 'actor', 'expired-key', 'h', 'COMPLETED', ?, ?)
             """.trimIndent(),
-            Timestamp.from(now.minus(1, ChronoUnit.HOURS)), Timestamp.from(now.minus(25, ChronoUnit.HOURS)),
+            Timestamp.from(now.minus(1, ChronoUnit.HOURS)),
+            Timestamp.from(now.minus(25, ChronoUnit.HOURS)),
         )
         jdbcTemplate.update(
             """
@@ -363,7 +378,8 @@ class BatchFlowIntegrationTest {
                 (scope, actor_id, idempotency_key, request_hash, status, expires_at, created_at)
             values ('TEST', 'actor', 'valid-key', 'h', 'COMPLETED', ?, ?)
             """.trimIndent(),
-            Timestamp.from(now.plus(1, ChronoUnit.HOURS)), Timestamp.from(now),
+            Timestamp.from(now.plus(1, ChronoUnit.HOURS)),
+            Timestamp.from(now),
         )
 
         val deleted = idempotencyCleanup.execute(10_000)

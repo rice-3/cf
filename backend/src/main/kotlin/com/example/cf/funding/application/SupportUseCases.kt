@@ -189,7 +189,9 @@ class RequestSupportService(
             }
             // 数量上限を超える場合409 REWARD_SOLD_OUT（§5.3）。競合は1回だけ再試行する（§5.5）。
             val reserved = projectReferenceQuery.reserveRewardQuantity(
-                reward.rewardPlanId, command.quantity, reward.version,
+                reward.rewardPlanId,
+                command.quantity,
+                reward.version,
             ) || retryReserve(reward.rewardPlanId, command.quantity)
             if (!reserved) {
                 throw InvalidStateException(

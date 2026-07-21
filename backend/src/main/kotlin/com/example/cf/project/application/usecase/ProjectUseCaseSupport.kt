@@ -2,28 +2,27 @@ package com.example.cf.project.application.usecase
 
 import com.example.cf.project.application.command.RewardPlanCommand
 import com.example.cf.project.domain.model.FundingCondition
+import com.example.cf.project.domain.model.FundingType
 import com.example.cf.project.domain.model.ProjectBody
 import com.example.cf.project.domain.model.ProjectStatus
 import com.example.cf.project.domain.model.ProjectSummary
 import com.example.cf.project.domain.model.ProjectTitle
 import com.example.cf.project.domain.model.RewardPlan
+import com.example.cf.shared.kernel.Version
 import com.example.cf.shared.kernel.error.ValidationException
+import com.example.cf.shared.kernel.id.ProjectId
 import com.example.cf.shared.kernel.id.RewardPlanId
 import com.example.cf.shared.kernel.id.UlidGenerator
 import com.example.cf.shared.kernel.money.Money
 import com.example.cf.shared.kernel.time.DateRange
-import com.example.cf.shared.kernel.Version
-import com.example.cf.shared.kernel.id.ProjectId
-import com.example.cf.project.domain.model.FundingType
 import java.time.Instant
 
 /** ドメインVO生成時のIllegalArgumentExceptionを400 VALIDATION_ERRORへ変換する。 */
-inline fun <T> mapDomainValidation(block: () -> T): T =
-    try {
-        block()
-    } catch (e: IllegalArgumentException) {
-        throw ValidationException(message = e.message ?: "validation failed")
-    }
+inline fun <T> mapDomainValidation(block: () -> T): T = try {
+    block()
+} catch (e: IllegalArgumentException) {
+    throw ValidationException(message = e.message ?: "validation failed")
+}
 
 fun buildFundingCondition(
     targetAmount: Long,
@@ -38,19 +37,18 @@ fun buildTitle(value: String) = mapDomainValidation { ProjectTitle(value) }
 fun buildSummary(value: String) = mapDomainValidation { ProjectSummary(value) }
 fun buildBody(value: String) = mapDomainValidation { ProjectBody(value) }
 
-fun buildRewardPlans(commands: List<RewardPlanCommand>, generator: UlidGenerator): List<RewardPlan> =
-    mapDomainValidation {
-        commands.map { cmd ->
-            RewardPlan.create(
-                id = RewardPlanId.newId(generator),
-                name = cmd.name,
-                description = cmd.description,
-                unitAmount = Money.of(cmd.unitAmount),
-                quantityLimit = cmd.quantityLimit,
-                displayOrder = cmd.displayOrder,
-            )
-        }
+fun buildRewardPlans(commands: List<RewardPlanCommand>, generator: UlidGenerator): List<RewardPlan> = mapDomainValidation {
+    commands.map { cmd ->
+        RewardPlan.create(
+            id = RewardPlanId.newId(generator),
+            name = cmd.name,
+            description = cmd.description,
+            unitAmount = Money.of(cmd.unitAmount),
+            quantityLimit = cmd.quantityLimit,
+            displayOrder = cmd.displayOrder,
+        )
     }
+}
 
 // ---- 結果DTO ----------------------------------------------------------------
 

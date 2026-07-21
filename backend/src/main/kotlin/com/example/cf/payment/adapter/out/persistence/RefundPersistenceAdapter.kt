@@ -97,17 +97,13 @@ class RefundPersistenceAdapter(
     private val jpaRepository: RefundJpaRepository,
 ) : RefundRepository {
 
-    override fun findById(id: RefundId): Refund? =
-        jpaRepository.findById(id.value).orElse(null)?.toDomain()
+    override fun findById(id: RefundId): Refund? = jpaRepository.findById(id.value).orElse(null)?.toDomain()
 
-    override fun findByIdForUpdate(id: RefundId): Refund? =
-        jpaRepository.findWithLockByRefundId(id.value)?.toDomain()
+    override fun findByIdForUpdate(id: RefundId): Refund? = jpaRepository.findWithLockByRefundId(id.value)?.toDomain()
 
-    override fun findActiveBySupportId(supportId: SupportId): Refund? =
-        jpaRepository.findActiveBySupportId(supportId.value)?.toDomain()
+    override fun findActiveBySupportId(supportId: SupportId): Refund? = jpaRepository.findActiveBySupportId(supportId.value)?.toDomain()
 
-    override fun lockExecutableBatch(now: Instant, limit: Int): List<Refund> =
-        jpaRepository.lockExecutableBatch(now, limit).map { it.toDomain() }
+    override fun lockExecutableBatch(now: Instant, limit: Int): List<Refund> = jpaRepository.lockExecutableBatch(now, limit).map { it.toDomain() }
 
     override fun save(refund: Refund) {
         val entity = jpaRepository.findById(refund.id.value).orElse(RefundJpaEntity())

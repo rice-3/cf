@@ -37,11 +37,19 @@
   バージョンに非依存。検出はCode Scanning（Securityタブ）へSARIF報告（現状はレポート方式で非ブロッキング）。
   - [ ] CodeQLがKotlin 2.4対応後に `codeql.yml` へ java-kotlin を追加（Semgrepと併用 or 置換を判断）
   - [ ] Semgrepをゲート化（`continue-on-error`除去 or `semgrep ci`）する場合は既存findingsの棚卸しが前提
-- [ ] **未カバーの品質ゲート**（詳細設計 §13.4 のうち今回未対応）
-  - format（spotless/ktlint 未導入）
-  - OpenAPI互換チェック（`openapi.yaml` の生成/コミット運用が未整備）
-  - 依存/ライセンスscan（OWASP dependency-check 等）
-  - コンテナscan（Trivy 等。Dockerfile/イメージビルドのCI組込みが前提）
+- [x] **format** — Spotless + ktlint 1.5.0 導入（`com.diffplug.spotless`）。`spotlessCheck` は
+  `check`→`build` に自動組込みでCIの `gradlew build` で検証。全ソースを `spotlessApply` 済み。
+  ktlintは `intellij_idea` スタイル。設計上の正当な命名のため `package-name`（`adapter.in.*`）/
+  `filename`（複数宣言まとめ）/ `max-line-length`（日本語コメント）を無効化。
+  - [ ] Java整形は未対応（google/palantir-java-format が JDK 25 で不安定なため）。JDK 25対応後に追加。
+- [x] **依存/ライセンスscan** — `security-scan.yml` の `dependency-license` ジョブ（Trivy fs）。
+  脆弱性はSARIFでCode Scanningへ、ライセンスはログにテーブル出力（いずれも非ブロッキング）。
+- [x] **コンテナscan** — `backend/Dockerfile`（マルチステージ、Corretto 25、非root）を追加し、
+  `security-scan.yml` の `container` ジョブでイメージをビルド→Trivy image スキャン→SARIF報告。
+- [ ] **OpenAPI互換チェック** — `openapi.yaml` の生成/コミット運用が未整備のため未対応。
+  springdoc等でのspec生成（§6.15 のDTO生成運用）とセットで別途対応。
+- [ ] **スキャンのゲート化** — Trivy/Semgrepは現状レポート方式（`exit-code 0`）。既存findings棚卸し後に
+  重大度しきい値でCIブロックへ切替可能。
 - [ ] **CD** — main反映後の image build → ECR push → ECS デプロイ（Terraform 前提、§3.3と連動）
 
 ### 2.2 運用者向け検索API + SCR-060/061 の一覧UI化

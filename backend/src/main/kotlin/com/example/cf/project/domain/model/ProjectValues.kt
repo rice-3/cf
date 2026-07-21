@@ -5,17 +5,23 @@ import com.example.cf.shared.kernel.time.DateRange
 
 @JvmInline
 value class ProjectTitle(val value: String) {
-    init { require(value.length in 1..100) { "title must be 1..100 characters" } }
+    init {
+        require(value.length in 1..100) { "title must be 1..100 characters" }
+    }
 }
 
 @JvmInline
 value class ProjectSummary(val value: String) {
-    init { require(value.length in 1..300) { "summary must be 1..300 characters" } }
+    init {
+        require(value.length in 1..300) { "summary must be 1..300 characters" }
+    }
 }
 
 @JvmInline
 value class ProjectBody(val value: String) {
-    init { require(value.length in 1..20_000) { "body must be 1..20000 characters" } }
+    init {
+        require(value.length in 1..20_000) { "body must be 1..20000 characters" }
+    }
 }
 
 /** 募集方式（要件確認 10.1-1）。初期値は All-or-Nothing。 */

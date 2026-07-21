@@ -66,8 +66,7 @@ class PaymentTransactionSteps(
     // ---- BAT-007 決済照合 ----------------------------------------------------
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
-    fun findProviderPaymentId(id: PaymentId): String? =
-        paymentRepository.findById(id)?.providerPaymentId
+    fun findProviderPaymentId(id: PaymentId): String? = paymentRepository.findById(id)?.providerPaymentId
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun applyReconciledSuccess(id: PaymentId, providerPaymentId: String, audit: AuditContext) {
@@ -100,8 +99,7 @@ class PaymentTransactionSteps(
 
     // SELECT ... FOR UPDATE は読み取り専用トランザクションでは実行できないため readOnly にしない
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    fun lockRefundTargets(limit: Int): List<RefundId> =
-        refundRepository.lockExecutableBatch(clock.instant(), limit).map { it.id }
+    fun lockRefundTargets(limit: Int): List<RefundId> = refundRepository.lockExecutableBatch(clock.instant(), limit).map { it.id }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun startRefund(refundId: RefundId, audit: AuditContext): StartedRefund? {

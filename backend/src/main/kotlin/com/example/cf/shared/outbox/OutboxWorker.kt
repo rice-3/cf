@@ -85,14 +85,18 @@ class OutboxWorker(
             // 上限超過は運用通知対象（§9.1）。メトリクスはoutbox_pending_countで監視する（§9.3）
             log.error(
                 "Outbox event exhausted retries: eventId={} type={}",
-                event.eventId, event.eventType, cause,
+                event.eventId,
+                event.eventType,
+                cause,
             )
         } else {
             event.publishStatus = "ERROR"
             event.nextRetryAt = now.plus(backoff(event.retryCount))
             log.warn(
                 "Outbox dispatch failed, will retry: eventId={} retry={} cause={}",
-                event.eventId, event.retryCount, cause.message,
+                event.eventId,
+                event.retryCount,
+                cause.message,
             )
         }
     }

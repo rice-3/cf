@@ -236,15 +236,14 @@ class Support(
         }
 
         /** 生成イベント（§4.3 SupportRequested）。Payment紐付け後に発行する。 */
-        fun requestedEvent(support: Support, paymentId: PaymentId, now: Instant): SupportRequested =
-            SupportRequested(
-                supportId = support.id,
-                projectId = support.projectId,
-                supporterUserId = support.supporterUserId,
-                amount = support.amount.amount,
-                paymentId = paymentId,
-                occurredAt = now,
-            )
+        fun requestedEvent(support: Support, paymentId: PaymentId, now: Instant): SupportRequested = SupportRequested(
+            supportId = support.id,
+            projectId = support.projectId,
+            supporterUserId = support.supporterUserId,
+            amount = support.amount.amount,
+            paymentId = paymentId,
+            occurredAt = now,
+        )
 
         private val EMAIL_PATTERN = Regex("[^@\\s]+@[^@\\s]+\\.[^@\\s]+")
     }

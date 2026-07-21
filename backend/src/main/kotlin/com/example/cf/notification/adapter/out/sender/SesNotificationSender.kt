@@ -39,7 +39,8 @@ data class SesProperties(
 class SesNotificationSender(
     private val properties: SesProperties,
     private val objectMapper: ObjectMapper,
-) : NotificationSenderPort, DisposableBean {
+) : NotificationSenderPort,
+    DisposableBean {
 
     private val log = LoggerFactory.getLogger(javaClass)
     private val client: SesV2Client = SesV2Client.create()
@@ -94,9 +95,8 @@ class SesNotificationSender(
         client.close()
     }
 
-    private fun hashPrefix(value: String): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest(value.toByteArray())
-            .joinToString("") { "%02x".format(it) }
-            .take(12)
+    private fun hashPrefix(value: String): String = MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray())
+        .joinToString("") { "%02x".format(it) }
+        .take(12)
 }

@@ -14,5 +14,4 @@ data class ApiEnvelope<T>(
     val meta: ApiMeta,
 )
 
-fun <T> T.toEnvelope(correlationId: CorrelationId, now: Instant): ApiEnvelope<T> =
-    ApiEnvelope(this, ApiMeta(correlationId.value, now))
+fun <T> T.toEnvelope(correlationId: CorrelationId, now: Instant): ApiEnvelope<T> = ApiEnvelope(this, ApiMeta(correlationId.value, now))

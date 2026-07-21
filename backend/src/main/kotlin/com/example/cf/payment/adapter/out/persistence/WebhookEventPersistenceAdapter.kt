@@ -42,7 +42,10 @@ class WebhookEventPersistenceAdapter(
                      received_at, process_status)
                 values (?, ?, ?, ?, ?::jsonb, ?, 'RECEIVED')
                 """.trimIndent(),
-                event.eventId, provider, event.eventType, event.payloadHash,
+                event.eventId,
+                provider,
+                event.eventType,
+                event.payloadHash,
                 objectMapper.writeValueAsString(event.payload),
                 Timestamp.from(clock.instant()),
             )
@@ -60,7 +63,8 @@ class WebhookEventPersistenceAdapter(
                set process_status = 'PROCESSED', processed_at = ?
              where webhook_event_id = ?
             """.trimIndent(),
-            Timestamp.from(clock.instant()), eventId,
+            Timestamp.from(clock.instant()),
+            eventId,
         )
     }
 
@@ -71,7 +75,8 @@ class WebhookEventPersistenceAdapter(
                set process_status = 'ERROR', last_error_code = ?, retry_count = retry_count + 1
              where webhook_event_id = ?
             """.trimIndent(),
-            errorCode, eventId,
+            errorCode,
+            eventId,
         )
     }
 }

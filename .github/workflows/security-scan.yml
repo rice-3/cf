@@ -1,0 +1,72 @@
+name: Security scan (Trivy)
+
+# 依存/ライセンススキャンとコンテナイメージスキャン（詳細設計 §13.4、基本設計 §6.3 依存脆弱性）。
+# 検出は GitHub Code Scanning（Securityタブ）へSARIFで報告する（レポート方式）。
+# scan自体は exit-code 0 でCIをブロックしない。ゲート化する場合は exit-code を 1 にする。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "30 3 * * 1" # 毎週月曜 03:30 UTC
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  dependency-license:
+    name: Dependency & license scan (fs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin
+
+      # 依存脆弱性（Gradle/npm のロック情報から検出）→ SARIF
+      - name: Trivy dependency vulnerability scan (SARIF)
+        run: |
+          trivy fs --scanners vuln --format sarif --output trivy-deps.sarif \
+            --exit-code 0 --no-progress .
+
+      - name: Upload dependency SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-deps.sarif
+          category: trivy-deps
+
+      # ライセンススキャン（情報提供。ログにテーブル出力、ブロックしない）
+      - name: Trivy license scan (table, informational)
+        run: |
+          trivy fs --scanners license --format table --exit-code 0 --no-progress .
+
+  container:
+    name: Container image scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t cf-training-backend:ci ./backend
+
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin
+
+      - name: Trivy image scan (SARIF)
+        run: |
+          trivy image --format sarif --output trivy-image.sarif \
+            --exit-code 0 --no-progress cf-training-backend:ci
+
+      - name: Upload image SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image

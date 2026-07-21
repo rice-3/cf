@@ -90,8 +90,7 @@ class FileUploadFlowIntegrationTest {
     """.trimIndent()
 
     @Suppress("UNCHECKED_CAST")
-    private fun dataOf(body: Map<*, *>?): Map<String, Any?> =
-        body?.get("data") as Map<String, Any?>
+    private fun dataOf(body: Map<*, *>?): Map<String, Any?> = body?.get("data") as Map<String, Any?>
 
     @Test
     @Order(1)

@@ -5,12 +5,12 @@ import com.example.cf.project.domain.event.ProjectCancelled
 import com.example.cf.project.domain.event.ProjectCreated
 import com.example.cf.project.domain.event.ProjectFailed
 import com.example.cf.project.domain.event.ProjectFundingResult
-import com.example.cf.project.domain.event.ProjectSucceeded
 import com.example.cf.project.domain.event.ProjectPublished
 import com.example.cf.project.domain.event.ProjectRejected
 import com.example.cf.project.domain.event.ProjectReturned
 import com.example.cf.project.domain.event.ProjectReviewStarted
 import com.example.cf.project.domain.event.ProjectSubmittedForReview
+import com.example.cf.project.domain.event.ProjectSucceeded
 import com.example.cf.shared.kernel.Version
 import com.example.cf.shared.kernel.error.AccessDeniedException
 import com.example.cf.shared.kernel.error.InvalidStateException
@@ -225,8 +225,7 @@ class Project(
     }
 
     /** 支援受付可能か（§4.1.3: PUBLISHEDかつ募集期間内）。 */
-    fun isSupportable(now: Instant): Boolean =
-        status == ProjectStatus.PUBLISHED && fundingCondition.period.contains(now)
+    fun isSupportable(now: Instant): Boolean = status == ProjectStatus.PUBLISHED && fundingCondition.period.contains(now)
 
     companion object {
         const val MAX_REWARD_PLANS = 100

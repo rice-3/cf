@@ -79,18 +79,16 @@ class OperationsApiIntegrationTest {
     private var paymentId: String = ""
     private var refundId: String = ""
 
-    private fun headers(userId: String, roles: String, idempotencyKey: String? = null) =
-        HttpHeaders().apply {
-            contentType = MediaType.APPLICATION_JSON
-            set("X-Dev-User", userId)
-            set("X-Dev-Roles", roles)
-            idempotencyKey?.let { set("Idempotency-Key", it) }
-        }
+    private fun headers(userId: String, roles: String, idempotencyKey: String? = null) = HttpHeaders().apply {
+        contentType = MediaType.APPLICATION_JSON
+        set("X-Dev-User", userId)
+        set("X-Dev-Roles", roles)
+        idempotencyKey?.let { set("Idempotency-Key", it) }
+    }
 
     private fun ownerHeaders() = headers(DevUserSeeder.DEV_OWNER_ID, "OWNER,SUPPORTER")
 
-    private fun operatorHeaders(idempotencyKey: String? = null) =
-        headers(DevUserSeeder.DEV_ADMIN_ID, "OPERATOR,ADMIN", idempotencyKey)
+    private fun operatorHeaders(idempotencyKey: String? = null) = headers(DevUserSeeder.DEV_ADMIN_ID, "OPERATOR,ADMIN", idempotencyKey)
 
     @Suppress("UNCHECKED_CAST")
     private fun dataOf(body: Map<*, *>?) = body?.get("data") as Map<String, Any?>
@@ -152,12 +150,16 @@ class OperationsApiIntegrationTest {
         assertEquals(HttpStatus.ACCEPTED, support.statusCode, "body=${support.body}")
         supportId = dataOf(support.body)["supportId"] as String
         paymentId = jdbcTemplate.queryForObject(
-            "select payment_id from support where support_id = ?", String::class.java, supportId,
+            "select payment_id from support where support_id = ?",
+            String::class.java,
+            supportId,
         )!!
 
         outboxWorker.publishBatch()
         val providerPaymentId = jdbcTemplate.queryForObject(
-            "select provider_payment_id from payment where payment_id = ?", String::class.java, paymentId,
+            "select provider_payment_id from payment where payment_id = ?",
+            String::class.java,
+            paymentId,
         )!!
 
         val body =
@@ -237,7 +239,8 @@ class OperationsApiIntegrationTest {
         )
         val auditCount = jdbcTemplate.queryForObject(
             "select count(*) from audit_log where action = 'REFUND_REQUEST' and resource_id = ?",
-            Int::class.java, refundId,
+            Int::class.java,
+            refundId,
         ) ?: 0
         assertTrue(auditCount >= 1, "返金要求が監査ログへ記録されること")
     }
@@ -257,7 +260,9 @@ class OperationsApiIntegrationTest {
         assertEquals(refundId, dataOf(response.body)["refundId"])
 
         val count = jdbcTemplate.queryForObject(
-            "select count(*) from refund where support_id = ?", Int::class.java, supportId,
+            "select count(*) from refund where support_id = ?",
+            Int::class.java,
+            supportId,
         ) ?: 0
         assertEquals(1, count, "冪等再送で返金が二重作成されないこと")
     }
@@ -308,7 +313,8 @@ class OperationsApiIntegrationTest {
     fun `失敗した返金はOPERATORが再実行できる（API-RF-002）`() {
         // BAT-004で上限超過したFAILED状態を再現する
         jdbcTemplate.update(
-            "update refund set status = 'FAILED', retry_count = 8 where refund_id = ?", refundId,
+            "update refund set status = 'FAILED', retry_count = 8 where refund_id = ?",
+            refundId,
         )
         val response = rest.postForEntity(
             url("/api/v1/operations/refunds/$refundId/retry"),
@@ -320,7 +326,8 @@ class OperationsApiIntegrationTest {
 
         val auditCount = jdbcTemplate.queryForObject(
             "select count(*) from audit_log where action = 'REFUND_RETRY' and resource_id = ?",
-            Int::class.java, refundId,
+            Int::class.java,
+            refundId,
         ) ?: 0
         assertTrue(auditCount >= 1, "再実行操作が監査ログへ記録されること（基本設計 §8.2）")
     }

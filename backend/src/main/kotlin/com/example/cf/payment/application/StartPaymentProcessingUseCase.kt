@@ -1,13 +1,9 @@
 package com.example.cf.payment.application
 
-import com.example.cf.payment.domain.repository.PaymentRepository
 import com.example.cf.shared.kernel.error.DependencyException
 import com.example.cf.shared.kernel.id.PaymentId
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Propagation
-import org.springframework.transaction.annotation.Transactional
-import java.time.Clock
 
 /**
  * 決済開始（§5.3.1: Outbox配送後の外部呼出し）。

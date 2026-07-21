@@ -24,7 +24,9 @@ import java.time.Duration
  */
 @Component
 @Profile("!local & !test")
-class S3FileStorageAdapter : FileStoragePort, DisposableBean {
+class S3FileStorageAdapter :
+    FileStoragePort,
+    DisposableBean {
 
     private val s3: S3Client = S3Client.create()
     private val presigner: S3Presigner = S3Presigner.create()

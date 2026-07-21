@@ -1,7 +1,5 @@
 package com.example.cf.notification.application
 
-import com.example.cf.audit.application.AuditRecordPort
-import com.example.cf.audit.application.record
 import com.example.cf.notification.domain.model.Notification
 import com.example.cf.notification.domain.model.NotificationChannel
 import com.example.cf.notification.domain.repository.NotificationRepository
@@ -11,7 +9,6 @@ import com.example.cf.shared.kernel.id.UlidGenerator
 import com.example.cf.shared.kernel.id.UserId
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 
@@ -101,7 +98,11 @@ class SendNotificationService(
         when (result) {
             is SendResult.Sent -> steps.finishSent(notificationId, target.attemptNo, result.providerMessageId)
             is SendResult.Failed -> steps.finishFailed(
-                notificationId, target.attemptNo, result.errorCode, result.permanent, audit,
+                notificationId,
+                target.attemptNo,
+                result.errorCode,
+                result.permanent,
+                audit,
             )
         }
     }

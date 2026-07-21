@@ -9,7 +9,9 @@ import java.time.Instant
  */
 @JvmInline
 value class Version(val value: Long) {
-    init { require(value >= 0) { "Version must be >= 0: $value" } }
+    init {
+        require(value >= 0) { "Version must be >= 0: $value" }
+    }
 
     fun increment(): Version = Version(value + 1)
 }

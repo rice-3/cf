@@ -100,18 +100,16 @@ interface FileJpaRepository : JpaRepository<FileJpaEntity, String> {
 @Component
 class FilePersistenceAdapter(
     private val jpaRepository: FileJpaRepository,
-) : FileObjectRepository, FileReferenceQuery {
+) : FileObjectRepository,
+    FileReferenceQuery {
 
     // ---- FileObjectRepository ------------------------------------------------
 
-    override fun findById(id: FileId): FileObject? =
-        jpaRepository.findById(id.value).orElse(null)?.toDomain()
+    override fun findById(id: FileId): FileObject? = jpaRepository.findById(id.value).orElse(null)?.toDomain()
 
-    override fun findByIdForUpdate(id: FileId): FileObject? =
-        jpaRepository.findWithLockByFileId(id.value)?.toDomain()
+    override fun findByIdForUpdate(id: FileId): FileObject? = jpaRepository.findWithLockByFileId(id.value)?.toDomain()
 
-    override fun lockExpiredPendingBatch(now: java.time.Instant, limit: Int): List<FileObject> =
-        jpaRepository.lockExpiredPendingBatch(now, limit).map { it.toDomain() }
+    override fun lockExpiredPendingBatch(now: java.time.Instant, limit: Int): List<FileObject> = jpaRepository.lockExpiredPendingBatch(now, limit).map { it.toDomain() }
 
     override fun save(file: FileObject) {
         val entity = jpaRepository.findById(file.id.value).orElse(FileJpaEntity())
@@ -149,7 +147,6 @@ class FilePersistenceAdapter(
 
     // ---- FileReferenceQuery（公開契約、基本設計 §4.1） -----------------------
 
-    override fun isCompletedAndOwnedBy(fileId: String, ownerUserId: String): Boolean =
-        ULID_PATTERN.matches(fileId) &&
-            jpaRepository.existsByFileIdAndOwnerUserIdAndStatus(fileId, ownerUserId, FileStatus.COMPLETE.name)
+    override fun isCompletedAndOwnedBy(fileId: String, ownerUserId: String): Boolean = ULID_PATTERN.matches(fileId) &&
+        jpaRepository.existsByFileIdAndOwnerUserIdAndStatus(fileId, ownerUserId, FileStatus.COMPLETE.name)
 }

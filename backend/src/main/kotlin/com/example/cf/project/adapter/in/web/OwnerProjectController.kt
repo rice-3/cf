@@ -33,13 +33,12 @@ import org.springframework.web.bind.annotation.RestController
 import java.net.URI
 import java.time.Clock
 
-internal fun parseProjectId(raw: String): ProjectId =
-    if (ULID_PATTERN.matches(raw)) {
-        ProjectId(raw)
-    } else {
-        // ID形式不正は存在しないリソースとして扱い、情報を過剰開示しない（§11.1）
-        throw ResourceNotFoundException("PROJECT_NOT_FOUND", "Project $raw is not found")
-    }
+internal fun parseProjectId(raw: String): ProjectId = if (ULID_PATTERN.matches(raw)) {
+    ProjectId(raw)
+} else {
+    // ID形式不正は存在しないリソースとして扱い、情報を過剰開示しない（§11.1）
+    throw ResourceNotFoundException("PROJECT_NOT_FOUND", "Project $raw is not found")
+}
 
 /**
  * 起案者向けプロジェクトAPI（API-PJ-003〜006、基本設計 §6.4）。

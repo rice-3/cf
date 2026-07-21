@@ -61,26 +61,23 @@ data class ReconcileResponse(
     val status: String,
 )
 
-private fun parseSupportId(raw: String): SupportId =
-    if (ULID_PATTERN.matches(raw)) {
-        SupportId(raw)
-    } else {
-        throw ResourceNotFoundException("SUPPORT_NOT_FOUND", "Support $raw is not found")
-    }
+private fun parseSupportId(raw: String): SupportId = if (ULID_PATTERN.matches(raw)) {
+    SupportId(raw)
+} else {
+    throw ResourceNotFoundException("SUPPORT_NOT_FOUND", "Support $raw is not found")
+}
 
-private fun parseRefundId(raw: String): RefundId =
-    if (ULID_PATTERN.matches(raw)) {
-        RefundId(raw)
-    } else {
-        throw ResourceNotFoundException("REFUND_NOT_FOUND", "Refund $raw is not found")
-    }
+private fun parseRefundId(raw: String): RefundId = if (ULID_PATTERN.matches(raw)) {
+    RefundId(raw)
+} else {
+    throw ResourceNotFoundException("REFUND_NOT_FOUND", "Refund $raw is not found")
+}
 
-private fun parsePaymentId(raw: String): PaymentId =
-    if (ULID_PATTERN.matches(raw)) {
-        PaymentId(raw)
-    } else {
-        throw ResourceNotFoundException("PAYMENT_NOT_FOUND", "Payment $raw is not found")
-    }
+private fun parsePaymentId(raw: String): PaymentId = if (ULID_PATTERN.matches(raw)) {
+    PaymentId(raw)
+} else {
+    throw ResourceNotFoundException("PAYMENT_NOT_FOUND", "Payment $raw is not found")
+}
 
 /**
  * 運用操作API（API-RF-001 / API-RF-002 / API-PY-002、基本設計 §6.5）。
@@ -195,9 +192,8 @@ class OperationsController(
     private fun accepted(
         response: RefundResponse,
         request: HttpServletRequest,
-    ): ResponseEntity<ApiEnvelope<RefundResponse>> =
-        ResponseEntity.status(HttpStatus.ACCEPTED)
-            .body(response.toEnvelope(CorrelationIdFilter.from(request), clock.instant()))
+    ): ResponseEntity<ApiEnvelope<RefundResponse>> = ResponseEntity.status(HttpStatus.ACCEPTED)
+        .body(response.toEnvelope(CorrelationIdFilter.from(request), clock.instant()))
 
     /** 同一キーで内容が異なる要求を検出するためのハッシュ（§8.21 request_hash）。 */
     private fun requestHash(supportId: String, body: CreateRefundRequest): String {

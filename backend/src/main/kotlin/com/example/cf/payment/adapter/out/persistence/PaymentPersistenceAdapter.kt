@@ -88,19 +88,16 @@ interface PaymentJpaRepository : JpaRepository<PaymentJpaEntity, String> {
 @Component
 class PaymentPersistenceAdapter(
     private val jpaRepository: PaymentJpaRepository,
-) : PaymentRepository, PaymentReferenceQuery {
+) : PaymentRepository,
+    PaymentReferenceQuery {
 
-    override fun findById(id: PaymentId): Payment? =
-        jpaRepository.findById(id.value).orElse(null)?.toDomain()
+    override fun findById(id: PaymentId): Payment? = jpaRepository.findById(id.value).orElse(null)?.toDomain()
 
-    override fun findByIdForUpdate(id: PaymentId): Payment? =
-        jpaRepository.findWithLockByPaymentId(id.value)?.toDomain()
+    override fun findByIdForUpdate(id: PaymentId): Payment? = jpaRepository.findWithLockByPaymentId(id.value)?.toDomain()
 
-    override fun findByProviderPaymentId(provider: String, providerPaymentId: String): Payment? =
-        jpaRepository.findByProviderAndProviderPaymentId(provider, providerPaymentId)?.toDomain()
+    override fun findByProviderPaymentId(provider: String, providerPaymentId: String): Payment? = jpaRepository.findByProviderAndProviderPaymentId(provider, providerPaymentId)?.toDomain()
 
-    override fun findReconcileTargets(limit: Int): List<PaymentId> =
-        jpaRepository.findReconcileTargets(limit).map { PaymentId(it.paymentId) }
+    override fun findReconcileTargets(limit: Int): List<PaymentId> = jpaRepository.findReconcileTargets(limit).map { PaymentId(it.paymentId) }
 
     override fun save(payment: Payment) {
         val entity = jpaRepository.findById(payment.id.value).orElse(PaymentJpaEntity())
@@ -134,10 +131,9 @@ class PaymentPersistenceAdapter(
 
     // ---- PaymentReferenceQuery（公開契約） -----------------------------------
 
-    override fun findStatuses(paymentIds: Collection<String>): Map<String, String> =
-        if (paymentIds.isEmpty()) {
-            emptyMap()
-        } else {
-            jpaRepository.findAllById(paymentIds).associate { it.paymentId to it.status }
-        }
+    override fun findStatuses(paymentIds: Collection<String>): Map<String, String> = if (paymentIds.isEmpty()) {
+        emptyMap()
+    } else {
+        jpaRepository.findAllById(paymentIds).associate { it.paymentId to it.status }
+    }
 }

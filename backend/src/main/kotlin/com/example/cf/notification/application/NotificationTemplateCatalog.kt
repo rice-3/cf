@@ -88,9 +88,8 @@ object NotificationTemplateCatalog {
 
     private val PLACEHOLDER = Regex("\\{\\{\\s*(\\w+)\\s*}}")
 
-    private fun substitute(text: String, variables: Map<String, Any?>): String =
-        PLACEHOLDER.replace(text) { match ->
-            val key = match.groupValues[1]
-            variables[key]?.toString() ?: match.value
-        }
+    private fun substitute(text: String, variables: Map<String, Any?>): String = PLACEHOLDER.replace(text) { match ->
+        val key = match.groupValues[1]
+        variables[key]?.toString() ?: match.value
+    }
 }

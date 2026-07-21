@@ -29,9 +29,8 @@ import java.time.Clock
 
 private const val RESOURCE_TYPE = "Project"
 
-private fun ProjectRepository.getForUpdate(id: ProjectId): Project =
-    findByIdForUpdate(id)
-        ?: throw ResourceNotFoundException("PROJECT_NOT_FOUND", "Project ${id.value} is not found")
+private fun ProjectRepository.getForUpdate(id: ProjectId): Project = findByIdForUpdate(id)
+    ?: throw ResourceNotFoundException("PROJECT_NOT_FOUND", "Project ${id.value} is not found")
 
 /**
  * UC-PJ-001 プロジェクト下書き作成（詳細設計 §5.1）。
@@ -66,7 +65,10 @@ class CreateProjectService(
                 summary = buildSummary(command.summary),
                 body = buildBody(command.body),
                 fundingCondition = buildFundingCondition(
-                    command.targetAmount, command.fundingType, command.startAt, command.endAt,
+                    command.targetAmount,
+                    command.fundingType,
+                    command.startAt,
+                    command.endAt,
                 ),
                 rewardPlans = buildRewardPlans(command.rewardPlans, idGenerator),
                 mainFileId = command.mainFileId,
@@ -115,7 +117,10 @@ class UpdateProjectService(
                 summary = buildSummary(command.summary),
                 body = buildBody(command.body),
                 fundingCondition = buildFundingCondition(
-                    command.targetAmount, command.fundingType, command.startAt, command.endAt,
+                    command.targetAmount,
+                    command.fundingType,
+                    command.startAt,
+                    command.endAt,
                 ),
                 rewardPlans = buildRewardPlans(command.rewardPlans, idGenerator),
                 mainFileId = command.mainFileId,

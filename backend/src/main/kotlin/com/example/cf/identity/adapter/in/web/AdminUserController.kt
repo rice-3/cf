@@ -60,13 +60,12 @@ data class UpdateRolesResponse(val userId: String, val roles: List<String>, val 
 
 data class SuspendUserResponse(val userId: String, val status: String, val version: Long)
 
-private fun parseUserId(raw: String): String =
-    if (ULID_PATTERN.matches(raw)) {
-        raw
-    } else {
-        // ID形式不正は存在しないリソースとして扱い、情報を過剰開示しない（基本設計 §11.1）
-        throw ResourceNotFoundException("USER_NOT_FOUND", "User $raw is not found")
-    }
+private fun parseUserId(raw: String): String = if (ULID_PATTERN.matches(raw)) {
+    raw
+} else {
+    // ID形式不正は存在しないリソースとして扱い、情報を過剰開示しない（基本設計 §11.1）
+    throw ResourceNotFoundException("USER_NOT_FOUND", "User $raw is not found")
+}
 
 /**
  * API-AD-001〜003 会員検索・ロール更新・会員停止（基本設計 §6.6）。
@@ -95,8 +94,14 @@ class AdminUserController(
         val result = adminUserService.search(keyword, status, page.coerceAtLeast(0), size.coerceIn(1, 100))
         val items = result.items.map {
             AdminUserListItemResponse(
-                it.userId(), it.email(), it.displayName(), it.status(), it.roles(),
-                it.version(), it.createdAt(), it.updatedAt(),
+                it.userId(),
+                it.email(),
+                it.displayName(),
+                it.status(),
+                it.roles(),
+                it.version(),
+                it.createdAt(),
+                it.updatedAt(),
             )
         }
         return PageResult(items, result.page, result.size, result.totalElements, result.totalPages)

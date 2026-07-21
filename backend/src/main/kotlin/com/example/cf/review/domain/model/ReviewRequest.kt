@@ -159,16 +159,15 @@ class ReviewRequest(
 
     companion object {
         /** 審査申請時の生成（UC-PJ-003）。 */
-        fun create(id: ReviewId, projectId: ProjectId, submittedAt: Instant): ReviewRequest =
-            ReviewRequest(
-                id = id,
-                projectId = projectId,
-                status = ReviewStatus.REQUESTED,
-                reviewerUserId = null,
-                submittedAt = submittedAt,
-                startedAt = null,
-                completedAt = null,
-                version = Version(0),
-            )
+        fun create(id: ReviewId, projectId: ProjectId, submittedAt: Instant): ReviewRequest = ReviewRequest(
+            id = id,
+            projectId = projectId,
+            status = ReviewStatus.REQUESTED,
+            reviewerUserId = null,
+            submittedAt = submittedAt,
+            startedAt = null,
+            completedAt = null,
+            version = Version(0),
+        )
     }
 }
