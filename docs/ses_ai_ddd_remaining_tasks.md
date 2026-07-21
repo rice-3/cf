@@ -24,11 +24,18 @@
 
 ## 2. 残タスク（優先度: 高）
 
-### 2.1 CI/CD（最優先）
+### 2.1 CI/CD
 
-- [ ] **`.github/workflows/` のCI構築** — ディレクトリ自体が未作成。
-  品質ゲート: format → compile（Corretto 25 / Node 24）→ unit → ArchUnit → integration（Testcontainers）
-  → frontend（typecheck/build）→ OpenAPI互換 → 依存/ライセンス/コンテナscan（詳細設計 §13.4）。
+- [x] **`.github/workflows/` のCI構築** — `ci.yml` / `codeql.yml` を作成（詳細設計 §13.4）。
+  - `ci.yml`: backend（Wrapper検証 → Corretto 25 → `gradlew build` = compile/unit/ArchUnit/
+    Testcontainers統合）、frontend（Node 24 → typecheck → build）、secret-scan（gitleaks）
+  - `codeql.yml`: SAST（java-kotlin / javascript-typescript）※パブリックリポジトリまたはGHASが必要
+- [ ] **未カバーの品質ゲート**（詳細設計 §13.4 のうち今回未対応）
+  - format（spotless/ktlint 未導入）
+  - OpenAPI互換チェック（`openapi.yaml` の生成/コミット運用が未整備）
+  - 依存/ライセンスscan（OWASP dependency-check 等）
+  - コンテナscan（Trivy 等。Dockerfile/イメージビルドのCI組込みが前提）
+- [ ] **CD** — main反映後の image build → ECR push → ECS デプロイ（Terraform 前提、§3.3と連動）
 
 ### 2.2 運用者向け検索API + SCR-060/061 の一覧UI化
 

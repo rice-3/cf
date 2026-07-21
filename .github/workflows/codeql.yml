@@ -1,0 +1,55 @@
+name: CodeQL
+
+# 静的セキュリティ解析（詳細設計 §13.4、§14.1 SAST）。
+# 注: プライベートリポジトリで実行するには GitHub Advanced Security が必要。
+# パブリックリポジトリでは無償で動作する。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "30 2 * * 1" # 毎週月曜 02:30 UTC
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: java-kotlin
+            build-mode: manual
+          - language: javascript-typescript
+            build-mode: none
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Amazon Corretto 25
+        if: matrix.language == 'java-kotlin'
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: "25"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      # java-kotlin は manual build。CodeQLのトレースのためコンパイルする。
+      - name: Compile backend
+        if: matrix.build-mode == 'manual'
+        working-directory: backend
+        run: ./gradlew compileKotlin compileJava --no-daemon
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

@@ -62,23 +62,23 @@ cd backend
 ./gradlew check         # 統合テスト含む（Docker必須: Testcontainers PostgreSQL）
 ```
 
+## CI
+
+GitHub Actions（`.github/workflows/`）でPR品質ゲートを実行（詳細設計 §13.4）。
+
+- `ci.yml` — backend（compile → unit → ArchUnit → integration/Testcontainers）、
+  frontend（typecheck → build）、secret-scan（gitleaks）
+- `codeql.yml` — SAST（java-kotlin / javascript-typescript）※パブリックリポジトリまたはGHASが必要
+
 ## 実装状況
 
-第1段階（工程1〜4）と第2段階の工程5〜7が完了。
+バックエンド全機能（工程1〜9）とフロントエンド全19画面（基本設計 §5.2）が完了。
 
-- [x] Shared Kernel（ID / Money / Clock / 例外階層 / 共通型）
-- [x] Project 集約（作成・更新・審査申請・取消・承認・公開・終了判定）
-- [x] ReviewRequest 集約（開始・承認・差戻し・却下）
-- [x] FileObject 集約 + S3 Adapter（API-FL-001/002。local/testはStub、dev以上はAWS SDK）
-- [x] Support 集約 + Idempotency-Key 処理・リターン数量予約（API-FD-001〜004）
-- [x] Payment 集約 + 決済Sandbox・Webhook受信（API-PY-001）
-- [x] Outbox配送Worker（BAT-006。`FOR UPDATE SKIP LOCKED` + 指数Backoff）
-- [x] Flyway DDL（identity / project / review / outbox / audit / file / funding / payment）
-- [x] Transactional Outbox / 監査ログ記録
-- [x] Refund / Notification 集約とバッチ8本（BAT-001〜005, 007〜009）
-- [x] 運用操作API（API-RF-001/002 返金要求・再実行、API-PY-002 決済照合）
-- [ ] Identity / Admin / Audit API（工程9）
-- [ ] 監視・CI/CD・E2E・運用手順（工程10）
+- [x] 工程1〜9: Shared Kernel 〜 Identity/Admin/Audit（API-PJ/RV/FL/FD/PY/RF/US/AD/AU 全系列）
+- [x] バッチ BAT-001〜010（ShedLockで多重起動防止、ADR-0003）
+- [x] フロントエンド全19画面（SCR-001〜080、開発用ログインでロール切替）
+- [x] CI（GitHub Actions、工程10の一部）
+- [ ] 監視・アラート / E2E / Terraform / 運用手順書（工程10の残り）
 
-実装計画・残タスクの詳細は `docs/ses_ai_ddd_implementation_status.md`、
+実装計画・残タスクの詳細は `docs/ses_ai_ddd_remaining_tasks.md` / `docs/ses_ai_ddd_implementation_status.md`、
 実装順序は詳細設計書 16.2 を参照。
