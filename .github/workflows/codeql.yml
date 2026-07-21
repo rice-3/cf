@@ -1,8 +1,12 @@
 name: CodeQL
 
 # 静的セキュリティ解析（詳細設計 §13.4、§14.1 SAST）。
-# 注: プライベートリポジトリで実行するには GitHub Advanced Security が必要。
-# パブリックリポジトリでは無償で動作する。
+# 注: パブリックリポジトリでは無償。プライベートでは GitHub Advanced Security が必要。
+#
+# 現状は javascript-typescript（フロントエンド）のみ。
+# JVM側（java-kotlin）は、本プロジェクトのKotlin 2.4系がCodeQLのKotlin抽出器で未対応のため
+# 一時的に除外している（CODEQL_EXTRACTOR_KOTLIN_ALLOW_UNSUPPORTED_VERSION でも抽出不可）。
+# CodeQLがKotlin 2.4へ対応した時点で java-kotlin を追加する（残タスク §2.1）。
 on:
   push:
     branches: [main]
@@ -19,39 +23,20 @@ jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
-    env:
-      # 本プロジェクトはKotlin 2.4系（最新）で、CodeQLのKotlin抽出器が未対応の場合がある。
-      # 未対応バージョンでもベストエフォートで抽出させる公式フラグ（java-kotlinジョブのみ意味を持つ）。
-      CODEQL_EXTRACTOR_KOTLIN_ALLOW_UNSUPPORTED_VERSION: "true"
     strategy:
       fail-fast: false
       matrix:
         include:
-          - language: java-kotlin
-            build-mode: manual
           - language: javascript-typescript
             build-mode: none
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Amazon Corretto 25
-        if: matrix.language == 'java-kotlin'
-        uses: actions/setup-java@v4
-        with:
-          distribution: corretto
-          java-version: "25"
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-
-      # java-kotlin は manual build。CodeQLのトレースのためコンパイルする。
-      - name: Compile backend
-        if: matrix.build-mode == 'manual'
-        working-directory: backend
-        run: ./gradlew compileKotlin compileJava --no-daemon
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v3

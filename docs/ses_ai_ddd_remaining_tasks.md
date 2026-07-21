@@ -29,7 +29,10 @@
 - [x] **`.github/workflows/` のCI構築** — `ci.yml` / `codeql.yml` を作成（詳細設計 §13.4）。
   - `ci.yml`: backend（Wrapper検証 → Corretto 25 → `gradlew build` = compile/unit/ArchUnit/
     Testcontainers統合）、frontend（Node 24 → typecheck → build）、secret-scan（gitleaks）
-  - `codeql.yml`: SAST（java-kotlin / javascript-typescript）※パブリックリポジトリまたはGHASが必要
+  - `codeql.yml`: SAST（**javascript-typescript のみ**）※パブリックリポジトリまたはGHASが必要
+- [ ] **JVM側SAST（java-kotlin）の有効化** — 本プロジェクトのKotlin 2.4系がCodeQLのKotlin抽出器で
+  未対応のため一時除外中（`CODEQL_EXTRACTOR_KOTLIN_ALLOW_UNSUPPORTED_VERSION=true` でも抽出不可を確認）。
+  CodeQLがKotlin 2.4対応後に `codeql.yml` へ java-kotlin を追加する。
 - [ ] **未カバーの品質ゲート**（詳細設計 §13.4 のうち今回未対応）
   - format（spotless/ktlint 未導入）
   - OpenAPI互換チェック（`openapi.yaml` の生成/コミット運用が未整備）
