@@ -45,6 +45,47 @@ body {
   border-radius: 4px;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header-right a {
+  color: #2b6cb0;
+  text-decoration: none;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: #2b6cb0;
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  border: 1px solid #e2e8f0;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.data-table th {
+  background: #f7fafc;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
 .site-main {
   max-width: 960px;
   margin: 0 auto;

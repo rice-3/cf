@@ -2,8 +2,12 @@
 
 - 対象リポジトリ: `F:\11\CF`
 - 上位文書: 基本設計 BD-CF-001 v1.2 / 詳細設計 DD-CF-001 v1.2（`G:\マイドライブ\CF\`）
-- 更新日: 2026-07-20（工程9 Identity/Admin/Audit完了時点）
+- 更新日: 2026-07-21（フロントエンド全画面（基本設計 §5.2 の19画面）実装完了）
 - 実装済み範囲の詳細は `ses_ai_ddd_implementation_status.md` を参照。
+
+> **完了（2026-07-21）**: 残り13画面のフロントエンドを実装（§5参照）。
+> REVIEWER / SUPPORTER / OPERATOR / ADMIN / 共通画面をすべて実装し、実機（Docker+backend+frontend）で
+> 起案→審査申請→（DBで公開）→支援→履歴、および各ロール画面の表示・認可を確認済み。
 
 ---
 
@@ -75,6 +79,15 @@ ArchUnitへ `noCrossContextAdapterAccessFromIdentity` / `...FromAudit` を追加
 
 ## 4. 工程10: 監視・CI/CD・E2E・運用（優先度: 中）
 
+### 4.0 バックエンドの追加API（フロント実装で判明した不足）
+
+- [ ] **運用者向け 支援検索 / 返金検索 API**（SCR-060/061の一覧・検索UI化に必要）
+  - 現状の `/api/v1/operations/**` はアクション系（返金要求・再実行・決済照合）のみで、
+    OPERATORが支援・返金を横断検索する read API が無い
+  - 追加後、`operations` 画面をID指定コンソールから一覧・検索UIへ拡張する
+
+### 4.1 CI/監視/E2E/IaC
+
 - [ ] **`.github/workflows/` のCI構築** — READMEに記載があるがディレクトリ自体が未作成
 - [ ] メトリクス・アラート（詳細設計 §12.5–12.6、§9.3 バッチ監視）
   - `outbox_pending_count` / `oldest_outbox_age` / `notification_failure_rate` / `refund_retry_count` / `batch_last_success_age`
@@ -84,22 +97,47 @@ ArchUnitへ `noCrossContextAdapterAccessFromIdentity` / `...FromAudit` を追加
 
 ---
 
-## 5. フロントエンド（優先度: 高）
-
-基本設計 §5.2 の19画面のうち**実装済みは SCR-010/011/020〜023 の6画面**（Project関連一式）。
+## 5. フロントエンド（基本設計 §5.2 の19画面すべて実装完了）
 
 | 区分 | 状態 |
 |---|---|
 | 公開 | ✅ SCR-010 プロジェクト検索 / ✅ SCR-011 プロジェクト詳細 |
 | OWNER | ✅ SCR-020 一覧 / ✅ SCR-021 編集（新規作成含む） / ✅ SCR-022 プレビュー / ✅ SCR-023 審査申請確認 |
-| REVIEWER | ⬜ SCR-030 審査一覧 / SCR-031 審査詳細 |
-| SUPPORTER | ⬜ SCR-040 支援入力 / SCR-041 支援確認 / SCR-042 支援結果 / SCR-051 支援履歴 |
-| OPERATOR | ⬜ SCR-060 支援管理 / SCR-061 返金管理 |
-| ADMIN | ⬜ SCR-070 会員・ロール管理 / SCR-071 監査ログ検索 |
-| 共通 | ⬜ SCR-001 ログイン / SCR-002 アクセス拒否 / SCR-050 マイページ / SCR-080 システムエラー |
+| REVIEWER | ✅ SCR-030 審査一覧 / ✅ SCR-031 審査詳細（承認/差戻し/却下） |
+| SUPPORTER | ✅ SCR-040 支援入力 / ✅ SCR-041 支援確認 / ✅ SCR-042 支援結果 / ✅ SCR-051 支援履歴 |
+| OPERATOR | ✅ SCR-060 支援管理（決済照合） / ✅ SCR-061 返金管理（返金要求・再実行） |
+| ADMIN | ✅ SCR-070 会員・ロール管理 / ✅ SCR-071 監査ログ検索（操作監査 / AI利用記録） |
+| 共通 | ✅ SCR-001 ログイン / ✅ SCR-002 アクセス拒否 / ✅ SCR-050 マイページ / ✅ SCR-080 システムエラー |
 
-バックエンドAPIが揃っているため、SCR-030〜031 / SCR-040〜042 / SCR-051 はすぐに着手できる。
-SCR-060/061（OPERATOR）は §2 の返金APIが前提（実装済み）。
+### 5.0 SCR-040〜042 / SCR-060/061 の実装メモ
+
+- **SCR-040/041/042**: `projects/[projectId]/support/SupportFlow.tsx` の1コンポーネントで
+  入力→確認→結果の3ステップを実装（cross-page state を持たず、一時支援内容はメモリのみ・
+  localStorage不使用 §7.9）。冪等キーは確認へ進む時点で `crypto.randomUUID()` を1度だけ生成し、
+  確定リトライ間で不変に保つ（§5.6）。
+- **SCR-060/061（OPERATOR）**: バックエンドに運用者向けの一覧・検索API（支援検索/返金検索）が
+  **未実装**のため、ID指定のアクションコンソール（返金要求・返金再実行・決済照合）として実装した。
+  対象IDは監査ログ検索（SCR-071）や障害調査で特定する運用を想定。画面上部にもその旨を明示。
+  → **残タスク（§5.3）**: 運用者向けの支援/返金 検索API + 一覧UI。
+
+### 5.1 開発用ログイン（SCR-001）とロール切替
+
+- 本番はCognito OIDCだが、local/testでは `DevUserSeeder` が投入する4ユーザー
+  （起案者 / 審査担当者 / 管理者=ADMIN+OPERATOR+AUDITOR / 支援者）を SCR-001 で選択して切り替える。
+- 選択結果は **HttpOnly Cookie**（`cf_dev_user`）へ保存し、BFF（`lib/backend.ts`）が
+  `X-Dev-User` / `X-Dev-Roles` ヘッダーへ変換してバックエンドへ渡す（ブラウザJSからは参照不可 §7.9）。
+- 実装: `lib/devSession.ts`（ユーザー定義+Cookie読取）、`app/session-actions.ts`（login/logout）、
+  `app/login/page.tsx`（SCR-001）、ヘッダー（`layout.tsx`）はロールに応じてメニューを出し分け。
+
+### 5.2 実装済み画面の技術構成
+
+- クライアント/サーバー境界: 型・定数は `lib/api-types.ts`（server-only依存なし）に集約し、
+  `next/headers` に依存する `backendFetch` 等は `lib/backend.ts`（`import "server-only"`）に分離。
+  Client Component（"use client"）は `api-types` から、Server Component/Action は `backend` から import する。
+  （当初 backend.ts に混在させ、Client経由で next/headers を巻き込みビルド失敗 → 分離で解決）
+- Server Actions（`actions.ts`）でBFF越しにAPIを呼び、Problem Detailsの `code` を見て
+  409/422等をユーザー向けメッセージへ変換（MSG-W-001 等）。
+- 全21ルートが `next build` を通過。実機で全ロール画面の表示・認可・主要フローを確認済み。
 
 ### 5.1 実装済み画面の構成（Project一式）
 

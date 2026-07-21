@@ -3,7 +3,7 @@
 // SCR-023 審査申請確認フォーム（詳細設計 §6.5: confirmations必須）。
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { REQUIRED_SUBMIT_CONFIRMATIONS } from "@/lib/backend";
+import { REQUIRED_SUBMIT_CONFIRMATIONS } from "@/lib/api-types";
 import { submitProjectForReview } from "../../actions";
 
 const CONFIRMATION_LABELS: Record<string, string> = {

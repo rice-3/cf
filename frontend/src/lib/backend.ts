@@ -1,122 +1,25 @@
 // Backend API呼出しヘルパー（サーバー側専用）。
 // 認証ヘッダーはBFF（サーバー）側でのみ付与し、ブラウザへ認証情報を渡さない（§7.9）。
+// `next/headers` に依存するため、このモジュールは Server Component / Server Action からのみ
+// import すること。クライアント（"use client"）は型・定数を lib/api-types.ts から import する。
+import "server-only";
+import { currentDevUser } from "./devSession";
+import type { ApiEnvelope, ProblemDetails } from "./api-types";
+
+// 型・定数はクライアントと共用するため api-types から再エクスポートする。
+export * from "./api-types";
 
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8080";
 
-/** 開発用認証ヘッダー（localのみ）。第2段階でCognitoセッションへ置き換える。 */
-function devAuthHeaders(): Record<string, string> {
-  const userId = process.env.DEV_USER_ID;
-  const roles = process.env.DEV_USER_ROLES;
-  if (!userId) return {};
+/** 開発用認証ヘッダー（localのみ）。現在のdevセッション（Cookie）から解決する。 */
+async function devAuthHeaders(): Promise<Record<string, string>> {
+  const user = await currentDevUser();
+  if (!user) return {};
   return {
-    "X-Dev-User": userId,
-    "X-Dev-Roles": roles ?? "",
+    "X-Dev-User": user.userId,
+    "X-Dev-Roles": user.roles,
   };
 }
-
-export interface ApiEnvelope<T> {
-  data: T;
-  meta: { correlationId: string; timestamp: string };
-}
-
-export interface ProblemDetails {
-  status: number;
-  title?: string;
-  detail?: string;
-  code?: string;
-  correlationId?: string;
-  errors?: { field: string; code: string; message: string }[];
-  violations?: string[];
-}
-
-export interface PageResult<T> {
-  items: T[];
-  page: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
-}
-
-export interface ProjectListItem {
-  projectId: string;
-  title: string;
-  summary: string;
-  targetAmount: number;
-  fundingType: string;
-  startAt: string;
-  endAt: string;
-  status: string;
-  updatedAt: string;
-}
-
-export interface RewardPlanView {
-  rewardPlanId: string;
-  name: string;
-  description: string;
-  unitAmount: number;
-  quantityLimit: number | null;
-  remainingQuantity: number | null;
-  displayOrder: number;
-}
-
-export interface ProjectDetailView {
-  projectId: string;
-  ownerUserId: string;
-  title: string;
-  summary: string;
-  body: string;
-  targetAmount: number;
-  fundingType: string;
-  startAt: string;
-  endAt: string;
-  status: string;
-  mainFileId: string | null;
-  rewardPlans: RewardPlanView[];
-  version: number;
-  updatedAt: string;
-}
-
-export interface ProjectCreatedResponse {
-  projectId: string;
-  status: string;
-}
-
-export interface ProjectUpdatedResponse {
-  projectId: string;
-  status: string;
-  version: number;
-  updatedAt: string;
-}
-
-export interface SubmitReviewResponse {
-  reviewId: string;
-  projectStatus: string;
-  submittedAt: string;
-}
-
-export interface ProjectCancelledResponse {
-  projectId: string;
-  status: string;
-}
-
-export interface IssueUploadResponse {
-  fileId: string;
-  uploadUrl: string;
-  headers: Record<string, string>;
-  expiresAt: string;
-}
-
-export interface CompleteUploadResponse {
-  fileId: string;
-  status: string;
-  downloadReference: string;
-}
-
-/** DRAFT/RETURNEDのみ起案者が編集可能（基本設計 §3.2）。 */
-export const EDITABLE_PROJECT_STATUSES = new Set(["DRAFT", "RETURNED"]);
-
-/** SCR-023の必須確認事項（詳細設計 §5.2、UseCase側と一致させる）。 */
-export const REQUIRED_SUBMIT_CONFIRMATIONS = ["TERMS_ACCEPTED", "CONTENT_RESPONSIBILITY_ACCEPTED"] as const;
 
 export class BackendError extends Error {
   constructor(public readonly problem: ProblemDetails) {
@@ -128,11 +31,12 @@ export async function backendFetch<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<ApiEnvelope<T>> {
+  const auth = await devAuthHeaders();
   const response = await fetch(`${BACKEND_URL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      ...devAuthHeaders(),
+      ...auth,
       ...(init.headers ?? {}),
     },
     cache: "no-store",

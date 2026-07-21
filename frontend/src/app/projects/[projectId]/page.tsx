@@ -1,4 +1,5 @@
 // SCR-011 プロジェクト詳細
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BackendError, backendFetch, type ProjectDetailView } from "@/lib/backend";
 import { formatDateTime, formatYen, projectStatusLabel } from "@/lib/format";
@@ -63,8 +64,14 @@ export default async function ProjectDetailPage({
         ))}
       </section>
       {detail.status === "PUBLISHED" && (
-        <p className="error-summary" role="note">
-          支援機能（SCR-040）は別画面で対応予定です。現時点ではAPI（API-FD-001）のみ利用できます。
+        <p style={{ marginTop: "1.5rem" }}>
+          <Link
+            href={`/projects/${detail.projectId}/support`}
+            className="button-primary"
+            style={{ textDecoration: "none" }}
+          >
+            このプロジェクトを支援する
+          </Link>
         </p>
       )}
     </article>

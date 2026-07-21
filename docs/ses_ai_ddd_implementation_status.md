@@ -268,17 +268,18 @@ frontendの画面確認後、GitHubリポジトリの内容を検証して発覚
 - [ ] Terraform（ADR-007、`infra/` は現状docker-composeのみ）
 - [ ] 運用手順書
 
-### 4.4 Frontend 残画面
+### 4.4 Frontend 残画面（基本設計 §5.2 の19画面すべて完了）
 
-実装済みは SCR-010/011/020〜023（Project一式、§2.10）。基本設計 §5.2 の残り:
+REVIEWER / SUPPORTER / OPERATOR / ADMIN / 共通の全画面を実装済み。詳細は
+`ses_ai_ddd_remaining_tasks.md` §5 を参照。
 
-| 区分 | 画面 |
-|---|---|
-| REVIEWER | SCR-030 審査一覧 / SCR-031 審査詳細 |
-| SUPPORTER | SCR-040 支援入力 / SCR-041 支援確認 / SCR-042 支援結果 / SCR-051 支援履歴 |
-| OPERATOR | SCR-060 支援管理 / SCR-061 返金管理 |
-| ADMIN | SCR-070 会員・ロール管理 / SCR-071 監査ログ検索 |
-| 共通 | SCR-001 ログイン / SCR-002 アクセス拒否 / SCR-050 マイページ / SCR-080 システムエラー |
+- ロール切替（SCR-001）はHttpOnly Cookieベースの開発用ログイン（`lib/devSession.ts`）で実現。
+  本番はCognito OIDCへ置換。
+- クライアント/サーバー境界: 型・定数を `lib/api-types.ts` に集約、`next/headers` 依存の
+  `backendFetch` は `lib/backend.ts`（`server-only`）へ分離。
+- OPERATOR（SCR-060/061）は運用者向け検索APIが未実装のためID指定アクションコンソールとして実装。
+  検索API追加は残タスク（工程10 §4.0）。
+- 実機で全ロール画面の表示・認可、起案→審査→公開→支援→履歴の一連フローを確認済み。
 
 ### 4.5 その他の気付き
 
