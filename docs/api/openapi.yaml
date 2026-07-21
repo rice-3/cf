@@ -356,6 +356,38 @@ paths:
           description: OK
       tags:
       - operations-controller
+  /api/v1/operations/refunds:
+    get:
+      operationId: searchRefunds
+      parameters:
+      - in: query
+        name: status
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiEnvelopePageResultRefundListItem"
+          description: OK
+      tags:
+      - operations-controller
   /api/v1/operations/refunds/{refundId}/retry:
     post:
       operationId: retry
@@ -371,6 +403,43 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ApiEnvelopeRefundResponse"
+          description: OK
+      tags:
+      - operations-controller
+  /api/v1/operations/supports:
+    get:
+      operationId: searchSupports
+      parameters:
+      - in: query
+        name: status
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: projectId
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApiEnvelopePageResultOperationsSupportListItem"
           description: OK
       tags:
       - operations-controller
@@ -855,11 +924,25 @@ components:
           $ref: "#/components/schemas/PageResultAuditLogItemResponse"
         meta:
           $ref: "#/components/schemas/ApiMeta"
+    ApiEnvelopePageResultOperationsSupportListItem:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/PageResultOperationsSupportListItem"
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
     ApiEnvelopePageResultProjectListItem:
       type: object
       properties:
         data:
           $ref: "#/components/schemas/PageResultProjectListItem"
+        meta:
+          $ref: "#/components/schemas/ApiMeta"
+    ApiEnvelopePageResultRefundListItem:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/PageResultRefundListItem"
         meta:
           $ref: "#/components/schemas/ApiMeta"
     ApiEnvelopePageResultReviewListItem:
@@ -1172,6 +1255,43 @@ components:
             type: string
         uploadUrl:
           type: string
+    OperationsSupportListItem:
+      type: object
+      properties:
+        amount:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        paymentId:
+          type:
+          - string
+          - "null"
+        paymentStatus:
+          type:
+          - string
+          - "null"
+        projectId:
+          type: string
+        projectTitle:
+          type: string
+        status:
+          type: string
+          enum:
+          - PENDING
+          - PAID
+          - PAYMENT_FAILED
+          - CANCEL_REQUESTED
+          - CANCELLED
+          - REFUND_REQUESTED
+          - REFUNDING
+          - REFUNDED
+          - REFUND_FAILED
+        supportId:
+          type: string
+        supporterUserId:
+          type: string
     PageResultAdminUserListItemResponse:
       type: object
       properties:
@@ -1229,6 +1349,25 @@ components:
         totalPages:
           type: integer
           format: int32
+    PageResultOperationsSupportListItem:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperationsSupportListItem"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
     PageResultProjectListItem:
       type: object
       properties:
@@ -1236,6 +1375,25 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ProjectListItem"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    PageResultRefundListItem:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RefundListItem"
         page:
           type: integer
           format: int32
@@ -1442,6 +1600,37 @@ components:
           type: string
         status:
           type: string
+    RefundListItem:
+      type: object
+      properties:
+        amount:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        paymentId:
+          type: string
+        reasonCode:
+          type: string
+        refundId:
+          type: string
+        retryCount:
+          type: integer
+          format: int32
+        status:
+          type: string
+          enum:
+          - REQUESTED
+          - PROCESSING
+          - SUCCEEDED
+          - RETRY_WAIT
+          - FAILED
+        supportId:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
     RefundResponse:
       type: object
       properties:

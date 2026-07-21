@@ -1,9 +1,12 @@
 package com.example.cf.payment.adapter.out.persistence
 
+import com.example.cf.payment.application.RefundListItem
+import com.example.cf.payment.application.RefundSearchQuery
 import com.example.cf.payment.domain.model.Refund
 import com.example.cf.payment.domain.model.RefundReasonCode
 import com.example.cf.payment.domain.model.RefundStatus
 import com.example.cf.payment.domain.repository.RefundRepository
+import com.example.cf.shared.kernel.PageResult
 import com.example.cf.shared.kernel.Version
 import com.example.cf.shared.kernel.id.PaymentId
 import com.example.cf.shared.kernel.id.RefundId
@@ -14,12 +17,15 @@ import jakarta.persistence.Entity
 import jakarta.persistence.Id
 import jakarta.persistence.LockModeType
 import jakarta.persistence.Table
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 
 /** refund テーブル（詳細設計 §8.14）。 */
@@ -90,12 +96,24 @@ interface RefundJpaRepository : JpaRepository<RefundJpaEntity, String> {
         nativeQuery = true,
     )
     fun lockExecutableBatch(@Param("now") now: Instant, @Param("limit") limit: Int): List<RefundJpaEntity>
+
+    @Query(
+        """
+        select r from RefundJpaEntity r
+         where (:status is null or r.status = :status)
+        """,
+    )
+    fun searchForOperations(
+        @Param("status") status: String?,
+        pageable: org.springframework.data.domain.Pageable,
+    ): org.springframework.data.domain.Page<RefundJpaEntity>
 }
 
 @Component
 class RefundPersistenceAdapter(
     private val jpaRepository: RefundJpaRepository,
-) : RefundRepository {
+) : RefundRepository,
+    RefundSearchQuery {
 
     override fun findById(id: RefundId): Refund? = jpaRepository.findById(id.value).orElse(null)?.toDomain()
 
@@ -121,6 +139,32 @@ class RefundPersistenceAdapter(
         entity.createdAt = refund.createdAt
         entity.updatedAt = refund.updatedAt
         jpaRepository.save(entity)
+    }
+
+    // ---- RefundSearchQuery（運用者横断検索、SCR-061） -------------------------
+
+    @Transactional(readOnly = true)
+    override fun search(status: RefundStatus?, page: Int, size: Int): PageResult<RefundListItem> {
+        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
+        val result = jpaRepository.searchForOperations(status?.name, pageable)
+        return PageResult.of(
+            items = result.content.map {
+                RefundListItem(
+                    refundId = it.refundId,
+                    supportId = it.supportId,
+                    paymentId = it.paymentId,
+                    amount = it.amount,
+                    reasonCode = it.reasonCode,
+                    status = RefundStatus.valueOf(it.status),
+                    retryCount = it.retryCount,
+                    createdAt = it.createdAt,
+                    updatedAt = it.updatedAt,
+                )
+            },
+            page = page,
+            size = size,
+            totalElements = result.totalElements,
+        )
     }
 
     private fun RefundJpaEntity.toDomain() = Refund(

@@ -68,11 +68,18 @@
 
 ### 2.2 運用者向け検索API + SCR-060/061 の一覧UI化
 
-- [ ] **運用者向け 支援検索 / 返金検索 API**
-  - 現状 `/api/v1/operations/**` はアクション系（返金要求・再実行・決済照合）のみで、
-    OPERATORが支援・返金を横断検索する read API が無い。
-  - このため SCR-060/061 は暫定で「ID指定アクションコンソール」実装（§5.3 参照）。
-  - API追加後、`operations` 画面を一覧・検索UIへ拡張する。
+- [x] **運用者向け 支援検索 / 返金検索 API**
+  - `GET /api/v1/operations/supports`（状態・プロジェクトIDで横断検索、API-FD-004）と
+    `GET /api/v1/operations/refunds`（状態で絞り込み、API-RF-003）を追加。OPERATOR/ADMIN限定。
+  - 公開契約は `OperationsSupportSearchQuery`（funding.application）/ `RefundSearchQuery`（payment.application）
+    として定義し、Adapter（`SupportPersistenceAdapter` / `RefundPersistenceAdapter`）で実装。
+    支援一覧はプロジェクト名・決済状態を横断参照で付与する。
+  - OpenAPI spec（`docs/api/openapi.yaml`）を再生成、結合テスト（`OperationsApiIntegrationTest`）に
+    検索・状態フィルタ・認可のケースを追加。
+- [x] **SCR-060/061 の一覧・検索UI化**
+  - `operations` 画面を「支援管理（SCR-060）/ 返金管理（SCR-061）」のタブ付き一覧・検索UIへ拡張。
+    状態・プロジェクトIDでの検索、ページ送り、行内アクション（返金要求・決済照合・返金再実行）を提供。
+    暫定の「ID指定アクションコンソール」（`OperationsConsole.tsx`）は廃止。
 
 ---
 
@@ -155,8 +162,7 @@
 
 ### 5.3 既知の暫定実装（要フォロー）
 
-- **SCR-060/061（OPERATOR）**: 運用者向け検索APIが無いため、ID指定のアクションコンソールとして実装。
-  一覧・検索UI化は §2.2 の API追加が前提。
+- **SCR-060/061（OPERATOR）**: 運用者向け検索API（支援検索/返金検索）を追加し、一覧・検索UIへ移行済み（§2.2 完了）。
 - **メイン画像アップロード**: local/testはS3スタブ（発行時点で完了扱い）のため実PUTを行わない。
   dev以上の実S3接続時はブラウザからの直接PUT追加が必要。
 

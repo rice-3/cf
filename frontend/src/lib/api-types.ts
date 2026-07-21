@@ -220,6 +220,54 @@ export interface ReconcileResponse {
 
 export const REFUND_REASON_CODES = ["PROJECT_FAILED", "OPERATIONAL", "USER_CANCEL"] as const;
 
+/** 運用者向け支援一覧項目（SCR-060 支援管理、API-FD-004）。 */
+export interface OperationsSupportListItem {
+  supportId: string;
+  projectId: string;
+  projectTitle: string;
+  supporterUserId: string;
+  amount: number;
+  status: string;
+  paymentId: string | null;
+  paymentStatus: string | null;
+  createdAt: string;
+}
+
+/** 運用者向け返金一覧項目（SCR-061 返金管理、API-RF-003）。 */
+export interface RefundListItem {
+  refundId: string;
+  supportId: string;
+  paymentId: string;
+  amount: number;
+  reasonCode: string;
+  status: string;
+  retryCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 支援状態（support.status、詳細設計 §8.13）。運用検索の絞り込みに用いる。 */
+export const SUPPORT_STATUSES = [
+  "PENDING",
+  "PAID",
+  "PAYMENT_FAILED",
+  "CANCEL_REQUESTED",
+  "CANCELLED",
+  "REFUND_REQUESTED",
+  "REFUNDING",
+  "REFUNDED",
+  "REFUND_FAILED",
+] as const;
+
+/** 返金状態（refund.status、詳細設計 §8.14）。 */
+export const REFUND_STATUSES = [
+  "REQUESTED",
+  "PROCESSING",
+  "RETRY_WAIT",
+  "SUCCEEDED",
+  "FAILED",
+] as const;
+
 // ---- Admin / Audit（SCR-070/071、API-AD/AU） -------------------------------
 
 export interface AdminUserListItem {

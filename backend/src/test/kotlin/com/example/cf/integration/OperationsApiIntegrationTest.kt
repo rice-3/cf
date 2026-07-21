@@ -20,6 +20,7 @@ import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.client.ClientHttpResponse
@@ -373,5 +374,101 @@ class OperationsApiIntegrationTest {
         )
         assertEquals(HttpStatus.NOT_FOUND, response.statusCode)
         assertEquals("PAYMENT_NOT_FOUND", response.body?.get("code"))
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun itemsOf(body: Map<*, *>?) = dataOf(body)["items"] as List<Map<String, Any?>>
+
+    @Test
+    @Order(14)
+    fun `OPERATORは支援を横断検索できる（API-FD-004、SCR-060）`() {
+        val response = rest.exchange(
+            url("/api/v1/operations/supports?size=100"),
+            HttpMethod.GET,
+            HttpEntity<Void>(operatorHeaders()),
+            Map::class.java,
+        )
+        assertEquals(HttpStatus.OK, response.statusCode, "body=${response.body}")
+        val item = itemsOf(response.body).firstOrNull { it["supportId"] == supportId }
+        assertNotNull(item, "作成済みの支援が一覧に含まれること")
+        assertEquals("REFUNDED", item!!["status"])
+        assertNotNull(item["projectTitle"], "プロジェクト名が付与されること")
+    }
+
+    @Test
+    @Order(15)
+    fun `支援検索は状態で絞り込める`() {
+        val paid = rest.exchange(
+            url("/api/v1/operations/supports?status=PAID&size=100"),
+            HttpMethod.GET,
+            HttpEntity<Void>(operatorHeaders()),
+            Map::class.java,
+        )
+        assertEquals(HttpStatus.OK, paid.statusCode)
+        assertTrue(
+            itemsOf(paid.body).none { it["supportId"] == supportId },
+            "REFUNDED済みの支援はPAIDフィルタに現れないこと",
+        )
+        assertTrue(
+            itemsOf(paid.body).all { it["status"] == "PAID" },
+            "PAIDフィルタの結果はすべてPAIDであること",
+        )
+    }
+
+    @Test
+    @Order(16)
+    fun `不正な支援状態は400`() {
+        val response = rest.exchange(
+            url("/api/v1/operations/supports?status=NOPE"),
+            HttpMethod.GET,
+            HttpEntity<Void>(operatorHeaders()),
+            Map::class.java,
+        )
+        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
+    }
+
+    @Test
+    @Order(17)
+    fun `支援者は運用者検索を実行できない`() {
+        val response = rest.exchange(
+            url("/api/v1/operations/supports"),
+            HttpMethod.GET,
+            HttpEntity<Void>(headers(DevUserSeeder.DEV_SUPPORTER_ID, "SUPPORTER")),
+            Map::class.java,
+        )
+        assertEquals(HttpStatus.FORBIDDEN, response.statusCode)
+    }
+
+    @Test
+    @Order(18)
+    fun `OPERATORは返金を横断検索できる（API-RF-003、SCR-061）`() {
+        val response = rest.exchange(
+            url("/api/v1/operations/refunds?size=100"),
+            HttpMethod.GET,
+            HttpEntity<Void>(operatorHeaders()),
+            Map::class.java,
+        )
+        assertEquals(HttpStatus.OK, response.statusCode, "body=${response.body}")
+        val item = itemsOf(response.body).firstOrNull { it["refundId"] == refundId }
+        assertNotNull(item, "作成済みの返金が一覧に含まれること")
+        assertEquals(supportId, item!!["supportId"])
+        assertEquals(paymentId, item["paymentId"])
+    }
+
+    @Test
+    @Order(19)
+    fun `返金検索は状態で絞り込める`() {
+        // Order(10)で REQUESTED へ戻した返金が REQUESTED フィルタに現れる
+        val requested = rest.exchange(
+            url("/api/v1/operations/refunds?status=REQUESTED&size=100"),
+            HttpMethod.GET,
+            HttpEntity<Void>(operatorHeaders()),
+            Map::class.java,
+        )
+        assertEquals(HttpStatus.OK, requested.statusCode)
+        assertTrue(
+            itemsOf(requested.body).all { it["status"] == "REQUESTED" },
+            "REQUESTEDフィルタの結果はすべてREQUESTEDであること",
+        )
     }
 }

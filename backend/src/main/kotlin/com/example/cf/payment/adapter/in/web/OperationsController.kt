@@ -1,12 +1,19 @@
 package com.example.cf.payment.adapter.`in`.web
 
+import com.example.cf.funding.application.OperationsSupportListItem
+import com.example.cf.funding.application.OperationsSupportSearchQuery
+import com.example.cf.funding.domain.model.SupportStatus
 import com.example.cf.payment.application.CreateRefundUseCase
 import com.example.cf.payment.application.ReconcilePaymentUseCase
+import com.example.cf.payment.application.RefundListItem
+import com.example.cf.payment.application.RefundSearchQuery
 import com.example.cf.payment.application.RetryRefundUseCase
 import com.example.cf.payment.domain.model.RefundReasonCode
+import com.example.cf.payment.domain.model.RefundStatus
 import com.example.cf.shared.idempotency.IdempotencyOutcome
 import com.example.cf.shared.idempotency.IdempotencyPort
 import com.example.cf.shared.kernel.IdempotencyKey
+import com.example.cf.shared.kernel.PageResult
 import com.example.cf.shared.kernel.RoleCode
 import com.example.cf.shared.kernel.error.ResourceNotFoundException
 import com.example.cf.shared.kernel.error.ValidationException
@@ -27,11 +34,13 @@ import jakarta.validation.constraints.Size
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.security.MessageDigest
 import java.time.Clock
@@ -91,10 +100,49 @@ class OperationsController(
     private val createRefund: CreateRefundUseCase,
     private val retryRefund: RetryRefundUseCase,
     private val reconcilePayment: ReconcilePaymentUseCase,
+    private val supportSearch: OperationsSupportSearchQuery,
+    private val refundSearch: RefundSearchQuery,
     private val idempotency: IdempotencyPort,
     private val userSupport: CurrentUserSupport,
     private val clock: Clock,
 ) {
+
+    /** API-FD-004 運用者向け支援検索（SCR-060 支援管理）。状態・プロジェクトで横断検索。 */
+    @GetMapping("/supports")
+    fun searchSupports(
+        @RequestParam(required = false) status: String?,
+        @RequestParam(required = false) projectId: String?,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+        request: HttpServletRequest,
+    ): ApiEnvelope<PageResult<OperationsSupportListItem>> {
+        userSupport.requireCurrentUser().requireRole(RoleCode.OPERATOR)
+        val parsedStatus = status?.takeIf { it.isNotBlank() }?.let {
+            runCatching { SupportStatus.valueOf(it) }.getOrElse {
+                throw ValidationException(message = "status is invalid: $status")
+            }
+        }
+        return supportSearch.search(parsedStatus, projectId, page.coerceAtLeast(0), size.coerceIn(1, 100))
+            .toEnvelope(CorrelationIdFilter.from(request), clock.instant())
+    }
+
+    /** API-RF-003 運用者向け返金検索（SCR-061 返金管理）。状態で再実行対象を絞り込む。 */
+    @GetMapping("/refunds")
+    fun searchRefunds(
+        @RequestParam(required = false) status: String?,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+        request: HttpServletRequest,
+    ): ApiEnvelope<PageResult<RefundListItem>> {
+        userSupport.requireCurrentUser().requireRole(RoleCode.OPERATOR)
+        val parsedStatus = status?.takeIf { it.isNotBlank() }?.let {
+            runCatching { RefundStatus.valueOf(it) }.getOrElse {
+                throw ValidationException(message = "status is invalid: $status")
+            }
+        }
+        return refundSearch.search(parsedStatus, page.coerceAtLeast(0), size.coerceIn(1, 100))
+            .toEnvelope(CorrelationIdFilter.from(request), clock.instant())
+    }
 
     /** API-RF-001 返金要求（詳細設計 §6.9）。Idempotency-Key必須。 */
     @PostMapping("/supports/{supportId}/refunds")

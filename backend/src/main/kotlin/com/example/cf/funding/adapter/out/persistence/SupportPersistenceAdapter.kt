@@ -1,5 +1,7 @@
 package com.example.cf.funding.adapter.out.persistence
 
+import com.example.cf.funding.application.OperationsSupportListItem
+import com.example.cf.funding.application.OperationsSupportSearchQuery
 import com.example.cf.funding.application.RefundTarget
 import com.example.cf.funding.application.SupportDetailView
 import com.example.cf.funding.application.SupportItemView
@@ -149,6 +151,20 @@ interface SupportJpaRepository : JpaRepository<SupportJpaEntity, String> {
         """,
     )
     fun findRefundTargets(@Param("projectId") projectId: String): List<SupportJpaEntity>
+
+    /** 運用者向け横断検索（SCR-060）。status/projectId は任意（null で無条件）。 */
+    @Query(
+        """
+        select s from SupportJpaEntity s
+         where (:status is null or s.status = :status)
+           and (:projectId is null or s.projectId = :projectId)
+        """,
+    )
+    fun searchForOperations(
+        @Param("status") status: String?,
+        @Param("projectId") projectId: String?,
+        pageable: org.springframework.data.domain.Pageable,
+    ): org.springframework.data.domain.Page<SupportJpaEntity>
 }
 
 /**
@@ -161,6 +177,7 @@ class SupportPersistenceAdapter(
     private val paymentReferenceQuery: PaymentReferenceQuery,
 ) : SupportRepository,
     SupportSearchQuery,
+    OperationsSupportSearchQuery,
     SupportReferenceQuery {
 
     // ---- SupportReferenceQuery（公開契約、基本設計 §4.1） --------------------
@@ -314,6 +331,39 @@ class SupportPersistenceAdapter(
             version = entity.version,
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt,
+        )
+    }
+
+    // ---- OperationsSupportSearchQuery（運用者横断検索、SCR-060） ---------------
+
+    @Transactional(readOnly = true)
+    override fun search(
+        status: SupportStatus?,
+        projectId: String?,
+        page: Int,
+        size: Int,
+    ): PageResult<OperationsSupportListItem> {
+        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
+        val result = jpaRepository.searchForOperations(status?.name, projectId?.takeIf { it.isNotBlank() }, pageable)
+        val titles = projectReferenceQuery.findTitles(result.content.map { it.projectId })
+        val paymentStatuses = paymentReferenceQuery.findStatuses(result.content.mapNotNull { it.paymentId })
+        return PageResult.of(
+            items = result.content.map {
+                OperationsSupportListItem(
+                    supportId = it.supportId,
+                    projectId = it.projectId,
+                    projectTitle = titles[it.projectId] ?: "",
+                    supporterUserId = it.supporterUserId,
+                    amount = it.supportAmount,
+                    status = SupportStatus.valueOf(it.status),
+                    paymentId = it.paymentId,
+                    paymentStatus = it.paymentId?.let { id -> paymentStatuses[id] },
+                    createdAt = it.createdAt,
+                )
+            },
+            page = page,
+            size = size,
+            totalElements = result.totalElements,
         )
     }
 }
