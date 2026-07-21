@@ -1,212 +1,142 @@
 # CF-Training 残タスク一覧
 
-- 対象リポジトリ: `F:\11\CF`
+- 対象リポジトリ: `F:\11\CF`（GitHub: `https://github.com/rice-3/cf.git`）
 - 上位文書: 基本設計 BD-CF-001 v1.2 / 詳細設計 DD-CF-001 v1.2（`G:\マイドライブ\CF\`）
-- 更新日: 2026-07-21（フロントエンド全画面（基本設計 §5.2 の19画面）実装完了）
+- 更新日: 2026-07-21（残タスク再整理）
 - 実装済み範囲の詳細は `ses_ai_ddd_implementation_status.md` を参照。
-
-> **完了（2026-07-21）**: 残り13画面のフロントエンドを実装（§5参照）。
-> REVIEWER / SUPPORTER / OPERATOR / ADMIN / 共通画面をすべて実装し、実機（Docker+backend+frontend）で
-> 起案→審査申請→（DBで公開）→支援→履歴、および各ロール画面の表示・認可を確認済み。
+- 本書は**残タスク**を主役とする。完了済みは §5 に要約のみ記載。
 
 ---
 
-## 1. 全体進捗（詳細設計 §16.2 実装順序）
+## 1. サマリ
 
-| # | 工程 | 状態 |
+| # | 工程（詳細設計 §16.2） | 状態 |
 |---|---|---|
-| 1 | Shared Kernel、Error、Clock、ID、Money | ✅ 完了 |
-| 2 | Project集約とDomain Unit Test | ✅ 完了 |
-| 3 | Project Repository / Flyway / API / 画面 | ✅ 完了（SCR-010/011/020〜023） |
-| 4 | Review集約と審査フロー | ✅ 完了 |
-| 5 | File / S3 Adapter | ✅ 完了 |
-| 6 | Funding / Payment の内部モデルと冪等性 | ✅ 完了 |
-| 7 | Payment Sandbox / Webhook / Outbox配送 | ✅ 完了 |
-| 8 | Notification / Refund / Batch | ✅ 完了（起案者向け通知・SESテンプレート・冪等削除バッチも実装） |
-| 9 | Identity / Admin / Audit | ✅ 完了（Cognito連携はJIT自動登録の要判断あり） |
-| 10 | 監視、CI/CD、E2E、運用手順 | ⬜ 未着手 |
+| 1〜9 | Shared Kernel 〜 Identity/Admin/Audit（バックエンド全機能） | ✅ 完了 |
+| — | フロントエンド 全19画面（基本設計 §5.2） | ✅ 完了 |
+| 10 | 監視・CI/CD・E2E・IaC・運用手順 | ⬜ **未着手（残タスクの中心）** |
 
-バックエンドの業務フローは「起案 → 審査 → 公開 → 支援 → 決済 → 募集終了 → 返金 → 通知」まで
-一気通貫で動作する。管理系API（会員・ロール・監査）もAPI-US/AD/AU全系列が揃い、
-フロントエンドもProject関連一式（SCR-010/011/020〜023）が実機確認済み。
-残るのはREVIEWER/SUPPORTER/OPERATOR/ADMIN向け画面とCI/CD・運用基盤（工程10）。
+- バックエンドの業務API（API-PJ/RV/FL/FD/PY/RF/US/AD/AU）は全系列実装済み。
+- 業務フローは「起案 → 審査 → 公開 → 支援 → 決済 → 募集終了 → 返金 → 通知」まで一気通貫で動作。
+- **残るのは主に工程10（運用基盤）** と、少数のバックエンド追加API・要判断事項。
 
 ---
 
-## 2. 工程8の残り（完了）
+## 2. 残タスク（優先度: 高）
 
-バッチ8本、Refund / Notification 集約、運用操作API（API-RF-001 / RF-002 / PY-002）に加え、
-残っていた以下3件も2026-07-21に完了。
+### 2.1 CI/CD（最優先）
 
-- [x] **起案者向け通知の宛先解決** — イベントに `ownerUserId` を追加（ADR-0002採用）。
-  ProjectApproved / ProjectReturned / ProjectRejected / ProjectPublished / ProjectSucceeded /
-  ProjectFailed に `ownerUserId` を持たせ、`NotificationEventHandler` が宛先種別（OWNER/SUPPORTER）
-  ごとに解決する。起案者向けテンプレート6種（PROJECT_APPROVED/RETURNED/REJECTED/PUBLISHED/
-  SUCCEEDED/FAILED）を購読追加。
-- [x] **SESテンプレート本文の定義** — `NotificationTemplateCatalog` に件名・本文を一元定義（`{{key}}`
-  プレースホルダ、§10.3準拠で個人情報を含めない）。local/testは `MockNotificationSender` が本カタログで
-  レンダリングしてログ出力。dev以上のSES登録は本カタログを正とし、Terraform（`aws_sesv2_email_template`）
-  またはCLIで反映する（**Terraform反映自体は工程10の残タスク §4.1**）。
-- [x] **冪等記録の削除バッチ（BAT-010）** — `IdempotencyPort.deleteExpired` + `IdempotencyCleanupBatch`
-  （日次 `0 15 3 * * *`、1回最大10,000件）。失効後は再実行が許可されるため物理削除は安全。
-  基本設計 §8.1 に項目が無いための追加（詳細設計 §9 BAT-008相当、番号衝突を避けBAT-010とした）。
+- [ ] **`.github/workflows/` のCI構築** — ディレクトリ自体が未作成。
+  品質ゲート: format → compile（Corretto 25 / Node 24）→ unit → ArchUnit → integration（Testcontainers）
+  → frontend（typecheck/build）→ OpenAPI互換 → 依存/ライセンス/コンテナscan（詳細設計 §13.4）。
 
-いずれも `ProjectTest` / `BatchFlowIntegrationTest` に検証を追加し、全テスト通過を確認済み。
+### 2.2 運用者向け検索API + SCR-060/061 の一覧UI化
+
+- [ ] **運用者向け 支援検索 / 返金検索 API**
+  - 現状 `/api/v1/operations/**` はアクション系（返金要求・再実行・決済照合）のみで、
+    OPERATORが支援・返金を横断検索する read API が無い。
+  - このため SCR-060/061 は暫定で「ID指定アクションコンソール」実装（§5.3 参照）。
+  - API追加後、`operations` 画面を一覧・検索UIへ拡張する。
 
 ---
 
-## 3. 工程9: Identity / Admin / Audit（完了）
+## 3. 残タスク（優先度: 中）
 
-- [x] API-US-001 プロフィール取得 / API-US-002 プロフィール更新（`MeController`）
-- [x] API-AD-001 会員検索 / API-AD-002 ロール更新 / API-AD-003 会員停止（`AdminUserController`）
-  - ロール更新は自己のADMIN剥奪を403 `ROLE_UPDATE_FORBIDDEN` で拒否
-  - 会員停止は自己停止を403 `USER_SUSPEND_FORBIDDEN` で拒否、停止済みへの再停止は409 `USER_INVALID_STATE`
-  - 割当可能ロールは `role.assignable = true` をDBから参照（ハードコードしない）
-- [x] API-AU-001 監査ログ検索 / API-AU-002 AI利用記録検索（`AuditController`）
-  - from/to必須・最大31日（超過は400 `DATE_RANGE_TOO_LARGE`）、actionは完全一致のみ
-  - 認可はADMIN/AUDITOR（`/admin/**`配下ではないためSecurityConfigに個別ルールを追加）
-- [x] **Cognito（OIDC）認証への切替**
-  - `CognitoJwtAuthenticationConverter`（Java）でCognito Subject → 内部UserId変換、
-    ロールはトークンではなくDB（user_role）を正として解決（基本設計 §9.1）
-  - `spring.security.oauth2.resourceserver.jwt.issuer-uri` を `COGNITO_ISSUER` 環境変数から注入
-  - **要判断（`TODO(question)`記載済み）**: 未登録Cognito Subjectの初回アクセス時にJIT自動登録
-    （既定ロールSUPPORTER）する実装としている。誰でもSignUpで即時登録される動作を許容するかは
-    dev投入前に承認者の判断が必要。許容しない場合は管理者Invite方式へ変更する
-  - 実機Cognito User Poolでの結合確認は未実施（テストはlocal/testの開発用ヘッダー認証のみ）
+### 3.1 監視・アラート（詳細設計 §12.5–12.6、§9.3）
 
-Port分離: `AppUserPort` / `UserRolePort`（identity.application）を新設し、
-JdbcTemplateベースの実装（`AppUserRepository` / `UserRoleRepository`）をadapter側に配置。
-ArchUnitへ `noCrossContextAdapterAccessFromIdentity` / `...FromAudit` を追加済み。
+- [ ] メトリクス公開（Micrometer/OpenTelemetry）とアラート閾値設定
+  - `outbox_pending_count` / `oldest_outbox_age` / `notification_failure_rate` /
+    `refund_retry_count` / `batch_last_success_age` / API 5xx率 / p95 レイテンシ 等。
 
-`AuditRecordPort` は後方互換な形で `detail: Map<String,Object>` を受け取るデフォルトメソッドを追加し、
-ロール変更理由・会員停止理由を監査ログのdetailへ記録できるようにした（既存呼出し元は変更不要）。
+### 3.2 E2Eテスト
+
+- [ ] Playwrightで主要ユーザーストーリー（起案→審査→公開→支援→返金）を自動化（詳細設計 §14.4）。
+
+### 3.3 IaC（Terraform、ADR-007）
+
+- [ ] `infra/` は現状 docker-compose のみ。AWS構成（ECS Fargate / RDS / S3 / SQS / SES / Cognito /
+      CloudWatch）をTerraform化。
+- [ ] **SESテンプレートのAWS登録** — 本文は `NotificationTemplateCatalog` を正として定義済み。
+      `aws_sesv2_email_template` またはCLIで実登録する（テンプレートIDはカタログのキー）。
+
+### 3.4 運用手順書
+
+- [ ] バッチ再実行、返金の手動対応、決済照合、障害時の切り分け（相関ID/Trace追跡）手順。
 
 ---
 
-## 4. 工程10: 監視・CI/CD・E2E・運用（優先度: 中）
+## 4. 未確定・要判断事項（人間の決定待ち）
 
-### 4.0 バックエンドの追加API（フロント実装で判明した不足）
+| # | 内容 | 影響・対応 |
+|---|---|---|
+| A | 監査アーカイブ（BAT-009）の実出力先（S3バケット・ストレージクラス・保持年数） | 現状はハッシュ算出のみのローカル実装。`LocalAuditArchiveAdapter` に `TODO(question)`。§3.3 Terraformと併せて確定 |
+| B | Outbox配送のSQS切替（現状 `InProcessOutboxDispatcher` のアプリ内配送） | マルチインスタンス構成時に必要。ADR候補（§3.3と関連） |
+| C | 未登録Cognito Subjectの初回JIT自動登録（既定ロールSUPPORTER）の可否 | `CognitoJwtAuthenticationConverter` に `TODO(question)`。許容しない場合は管理者Invite方式へ変更。dev投入前に承認要 |
+| D | ADR-BFF配置 / 決済非同期UI / Rich Text形式 の3件が未起票 | 該当機能の本格化時に起票（現状は既定動作で実装済み） |
+| E | Cognito実User Poolでの結合確認 | 未実施（テストはlocal/testの開発用ヘッダー認証のみ）。dev環境構築時に実施 |
 
-- [ ] **運用者向け 支援検索 / 返金検索 API**（SCR-060/061の一覧・検索UI化に必要）
-  - 現状の `/api/v1/operations/**` はアクション系（返金要求・再実行・決済照合）のみで、
-    OPERATORが支援・返金を横断検索する read API が無い
-  - 追加後、`operations` 画面をID指定コンソールから一覧・検索UIへ拡張する
-
-### 4.1 CI/監視/E2E/IaC
-
-- [ ] **`.github/workflows/` のCI構築** — READMEに記載があるがディレクトリ自体が未作成
-- [ ] メトリクス・アラート（詳細設計 §12.5–12.6、§9.3 バッチ監視）
-  - `outbox_pending_count` / `oldest_outbox_age` / `notification_failure_rate` / `refund_retry_count` / `batch_last_success_age`
-- [ ] E2Eテスト
-- [ ] Terraform（ADR-007）— `infra/` は現状 docker-compose のみ
-- [ ] 運用手順書（バッチ再実行、返金の手動対応、障害時の切り分け）
+> 解決済みの要判断: 起案者向け通知の宛先解決（ADR-0002）、冪等記録削除バッチ（BAT-010）、
+> バッチ多重起動防止（ADR-0003: ShedLock）。詳細は §5。
 
 ---
 
-## 5. フロントエンド（基本設計 §5.2 の19画面すべて実装完了）
+## 5. 完了済みの要約（詳細は `ses_ai_ddd_implementation_status.md`）
 
-| 区分 | 状態 |
+### 5.1 バックエンド（工程1〜9）
+
+- DDD/ヘキサゴナル/モジュラーモノリス。Project / Review / Funding / Payment / Notification /
+  File / Identity / Audit の各コンテキスト。ArchUnitで境界を強制。
+- API全系列、RFC 9457 Problem Details、Transactional Outbox、冪等制御、楽観ロック。
+- バッチ BAT-001〜010（公開/募集終了/返金対象作成/返金実行/通知/Outbox配送/決済照合/
+  ファイル清掃/監査アーカイブ/冪等記録削除）。
+- 工程8の残タスク3件を完了:
+  - 起案者向け通知の宛先解決（**ADR-0002**: イベントに`ownerUserId`追加、起案者向けテンプレート6種購読）
+  - SESテンプレート本文を `NotificationTemplateCatalog` に一元定義（Mockがレンダリング、SES登録はカタログを正）
+  - 冪等記録削除バッチ **BAT-010**
+- バッチ多重起動防止（**ADR-0003**: ShedLock。BAT-006 Outboxは競合コンシューマ設計のため除外）。
+- 工程9: API-US/AD/AU、Cognito JWT変換（`CognitoJwtAuthenticationConverter`）。
+
+### 5.2 フロントエンド（Next.js 16、全19画面）
+
+| 区分 | 画面 |
 |---|---|
-| 公開 | ✅ SCR-010 プロジェクト検索 / ✅ SCR-011 プロジェクト詳細 |
-| OWNER | ✅ SCR-020 一覧 / ✅ SCR-021 編集（新規作成含む） / ✅ SCR-022 プレビュー / ✅ SCR-023 審査申請確認 |
-| REVIEWER | ✅ SCR-030 審査一覧 / ✅ SCR-031 審査詳細（承認/差戻し/却下） |
-| SUPPORTER | ✅ SCR-040 支援入力 / ✅ SCR-041 支援確認 / ✅ SCR-042 支援結果 / ✅ SCR-051 支援履歴 |
-| OPERATOR | ✅ SCR-060 支援管理（決済照合） / ✅ SCR-061 返金管理（返金要求・再実行） |
-| ADMIN | ✅ SCR-070 会員・ロール管理 / ✅ SCR-071 監査ログ検索（操作監査 / AI利用記録） |
-| 共通 | ✅ SCR-001 ログイン / ✅ SCR-002 アクセス拒否 / ✅ SCR-050 マイページ / ✅ SCR-080 システムエラー |
+| 公開 | SCR-010 検索 / SCR-011 詳細 |
+| OWNER | SCR-020 一覧 / SCR-021 編集 / SCR-022 プレビュー / SCR-023 審査申請確認 |
+| REVIEWER | SCR-030 審査一覧 / SCR-031 審査詳細 |
+| SUPPORTER | SCR-040 支援入力 / SCR-041 確認 / SCR-042 結果 / SCR-051 支援履歴 |
+| OPERATOR | SCR-060 支援管理 / SCR-061 返金管理 |
+| ADMIN | SCR-070 会員・ロール管理 / SCR-071 監査ログ検索 |
+| 共通 | SCR-001 ログイン / SCR-002 アクセス拒否 / SCR-050 マイページ / SCR-080 システムエラー |
 
-### 5.0 SCR-040〜042 / SCR-060/061 の実装メモ
+- 開発用ログイン（SCR-001）は HttpOnly Cookie でロール切替。BFFが `X-Dev-User`/`X-Dev-Roles` へ変換
+  （§7.9。本番はCognito OIDCへ置換）。
+- 型/定数は `lib/api-types.ts`、`next/headers`依存の `backendFetch` は `lib/backend.ts`（server-only）に分離。
+- 実機（Docker+backend+frontend）で全ロール画面の表示・認可・主要フローを確認済み。
 
-- **SCR-040/041/042**: `projects/[projectId]/support/SupportFlow.tsx` の1コンポーネントで
-  入力→確認→結果の3ステップを実装（cross-page state を持たず、一時支援内容はメモリのみ・
-  localStorage不使用 §7.9）。冪等キーは確認へ進む時点で `crypto.randomUUID()` を1度だけ生成し、
-  確定リトライ間で不変に保つ（§5.6）。
-- **SCR-060/061（OPERATOR）**: バックエンドに運用者向けの一覧・検索API（支援検索/返金検索）が
-  **未実装**のため、ID指定のアクションコンソール（返金要求・返金再実行・決済照合）として実装した。
-  対象IDは監査ログ検索（SCR-071）や障害調査で特定する運用を想定。画面上部にもその旨を明示。
-  → **残タスク（§5.3）**: 運用者向けの支援/返金 検索API + 一覧UI。
+### 5.3 既知の暫定実装（要フォロー）
 
-### 5.1 開発用ログイン（SCR-001）とロール切替
+- **SCR-060/061（OPERATOR）**: 運用者向け検索APIが無いため、ID指定のアクションコンソールとして実装。
+  一覧・検索UI化は §2.2 の API追加が前提。
+- **メイン画像アップロード**: local/testはS3スタブ（発行時点で完了扱い）のため実PUTを行わない。
+  dev以上の実S3接続時はブラウザからの直接PUT追加が必要。
 
-- 本番はCognito OIDCだが、local/testでは `DevUserSeeder` が投入する4ユーザー
-  （起案者 / 審査担当者 / 管理者=ADMIN+OPERATOR+AUDITOR / 支援者）を SCR-001 で選択して切り替える。
-- 選択結果は **HttpOnly Cookie**（`cf_dev_user`）へ保存し、BFF（`lib/backend.ts`）が
-  `X-Dev-User` / `X-Dev-Roles` ヘッダーへ変換してバックエンドへ渡す（ブラウザJSからは参照不可 §7.9）。
-- 実装: `lib/devSession.ts`（ユーザー定義+Cookie読取）、`app/session-actions.ts`（login/logout）、
-  `app/login/page.tsx`（SCR-001）、ヘッダー（`layout.tsx`）はロールに応じてメニューを出し分け。
+### 5.4 その他
 
-### 5.2 実装済み画面の技術構成
-
-- クライアント/サーバー境界: 型・定数は `lib/api-types.ts`（server-only依存なし）に集約し、
-  `next/headers` に依存する `backendFetch` 等は `lib/backend.ts`（`import "server-only"`）に分離。
-  Client Component（"use client"）は `api-types` から、Server Component/Action は `backend` から import する。
-  （当初 backend.ts に混在させ、Client経由で next/headers を巻き込みビルド失敗 → 分離で解決）
-- Server Actions（`actions.ts`）でBFF越しにAPIを呼び、Problem Detailsの `code` を見て
-  409/422等をユーザー向けメッセージへ変換（MSG-W-001 等）。
-- 全21ルートが `next build` を通過。実機で全ロール画面の表示・認可・主要フローを確認済み。
-
-### 5.1 実装済み画面の構成（Project一式）
-
-- `frontend/src/app/projects/page.tsx`（SCR-010）/ `projects/[projectId]/page.tsx`（SCR-011）
-- `frontend/src/app/owner/projects/page.tsx`（SCR-020）
-- `frontend/src/app/owner/projects/new/page.tsx`・`[projectId]/edit/page.tsx`（SCR-021、作成/更新共通の
-  `ProjectForm.tsx` をClient Componentとして共有。React Hook Form + Zod、`useFieldArray`でリターン可変長）
-- `frontend/src/app/owner/projects/MainImageUploader.tsx`（メイン画像アップロード。ブラウザでSHA-256計算→
-  API-FL-001発行→API-FL-002完了。local/testのS3スタブは発行時点で完了扱いのため実PUTは行わない仕様
-  — backendの結合テストと同じ挙動）
-- `frontend/src/app/owner/projects/[projectId]/preview/page.tsx`（SCR-022）
-- `frontend/src/app/owner/projects/[projectId]/submit-review/page.tsx` + `SubmitReviewForm.tsx`（SCR-023）
-- `frontend/src/app/owner/projects/actions.ts`（Server Actions。create/update/submitForReview/cancel/
-  issueUpload/completeUploadをBFF側で実行し、認証ヘッダーをブラウザへ渡さない §7.9）
-- 起案者向けの単体取得APIが無いため、詳細取得は所有者判定込みの`PublicProjectController`
-  （`GET /api/v1/projects/{id}`）を共用している
-
-### 5.2 実機確認で見つけたバックエンドの不具合（本作業で修正済み）
-
-`GET /api/v1/projects`（keyword未指定、すなわちSCR-010の既定表示）で
-`ERROR: operator does not exist: character varying ~~ bytea` が発生し500になっていた。
-
-- 原因: JPQLの`:keyword is null or p.title like concat('%', :keyword, '%')`で、keywordにnullを
-  bindするとHibernateがconcat内のパラメータ型を推論できずbyteaとみなし、PostgreSQLの型検査で失敗する
-  （SQLは短絡評価前に全体を型検査するため、`is null`分岐があっても影響を受ける）
-- 修正: keywordを常に非null（未指定時は空文字列）で渡すよう`ProjectPersistenceAdapter.searchPublished`
-  を変更し、JPQLの`is null`分岐を削除（`LIKE '%%'`は全件マッチするため動作は変わらない）
-- 既存の結合テストではこのAPIを一度も呼んでいなかったため検出できていなかった。
-  回帰防止として`ProjectReviewFlowIntegrationTest`にkeyword未指定の検索テストを追加した
-- **教訓**: バックエンドの単体・結合テストが全て通過していても、フロントエンドから実際に叩いて
-  初めて気づくクラスの不具合がある（本件はnullパラメータのSQL型推論というテストで書き漏らしやすい観点）
+- [x] git初回コミット・push済み（`main`）。
+- [ ] 設計書 `.docx` の再出力（`.md` は両書 v1.2、`.docx` は v1.0 のまま）。
 
 ---
 
-## 6. 未確定・要判断事項
+## 6. 実装時の注意点（既知の落とし穴）
 
-| # | 内容 | 影響 |
-|---|---|---|
-| 1 | ~~起案者向け通知の宛先解決方法~~ → **解決済（ADR-0002: イベントにownerUserId追加）** | — |
-| 2 | ~~冪等記録の削除バッチの要否~~ → **解決済（BAT-010として実装）** | — |
-| 3 | 監査アーカイブ（BAT-009）の実出力先（S3バケット・ストレージクラス・保持年数） | 現在はハッシュ算出のみのローカル実装。`LocalAuditArchiveAdapter` に `TODO(question)` |
-| 4 | Outbox配送のSQS切替（現状は `InProcessOutboxDispatcher` によるアプリ内配送） | ADR候補。マルチインスタンス構成時に必要 |
-| 5 | ~~バッチの分散ロック~~ → **解決済（ADR-0003: ShedLock導入）** | BAT-001/002/004/005/007/008/009/010に`@SchedulerLock`。BAT-006 Outboxは競合コンシューマ設計のため意図的に除外 |
-| 6 | ADR-003（BFF配置）/ ADR-004（決済非同期UI）/ ADR-005（Rich Text形式）が未起票 | 該当機能の着手時に必要 |
-| 7 | 未登録Cognito Subjectの初回アクセス時JIT自動登録（既定ロールSUPPORTER）を許容するか | `CognitoJwtAuthenticationConverter` に `TODO(question)`。許容しない場合は管理者Invite方式へ変更 |
-
----
-
-## 7. その他
-
-- [x] git初回コミット・push実施済み（`https://github.com/rice-3/cf.git` の `main` ブランチ）
-- [ ] 設計書 `.docx` の再出力（`.md` は両書とも v1.2、`.docx` は v1.0 のまま）
-
----
-
-## 8. 実装時の注意点（既知の落とし穴）
-
-工程7・8で実際に踏んだもの。同種の実装を追加する際は注意。
+同種の実装を追加する際の参考。
 
 | 項目 | 内容 |
 |---|---|
-| `@Transactional` の自己呼出し | `REQUIRES_NEW` は同一クラス内の呼出しではプロキシを経由せず**無効**になる。外部呼出しを挟む処理は `PaymentTransactionSteps` / `NotificationTransactionSteps` のように別Beanへ切り出す |
-| `readOnly` トランザクション | `SELECT ... FOR UPDATE SKIP LOCKED` は読み取り専用トランザクションで**実行できない**（PostgreSQLがエラーを返す） |
-| テストのHTTPクライアント | `RestTemplate()` の既定（HttpURLConnection）は**401応答の本文を破棄する**。エラーコードを検証するテストは `RestTemplate(JdkClientHttpRequestFactory())` を使う |
-| テスト時のスケジューラ | Outbox配送・定期バッチは `application-test.yml` で無効化している。有効だと検証対象を裏で書き換えテストが不安定になる。バッチを検証するテストはUseCaseを直接呼ぶ |
-| Hibernateスキーマ検証 | `ddl-auto: validate` のため、Migrationの型と Entity のマッピングが一致しないと起動に失敗する（`char(n)` は `bpchar` 扱いで不一致になる） |
+| `@Transactional` 自己呼出し | `REQUIRES_NEW` は同一クラス内呼出しではプロキシを経由せず**無効**。外部呼出しを挟む処理は別Beanへ切り出す（`PaymentTransactionSteps` / `NotificationTransactionSteps`） |
+| `readOnly` トランザクション | `SELECT ... FOR UPDATE SKIP LOCKED` は読み取り専用Txで**実行不可**（PostgreSQLがエラー） |
+| テストのHTTPクライアント | `RestTemplate()` 既定（HttpURLConnection）は**401応答の本文を破棄**。エラーコード検証は `RestTemplate(JdkClientHttpRequestFactory())` |
+| テスト時のスケジューラ | スケジューリングはtestプロファイルで無効（`SchedulingConfig` は `@Profile("!test")`）。バッチ検証はUseCase/バッチ処理を直接呼ぶ |
+| Hibernateスキーマ検証 | `ddl-auto: validate` のため Migration型とEntityマッピングの不一致は起動失敗（`char(n)`は`bpchar`扱い）。`shedlock`等の非Entityテーブルは対象外 |
+| JPQLのnullパラメータ | `LIKE`/`concat` にnullを渡すと型推論が`bytea`になり `character varying ~~ bytea` エラー。呼出し側で空文字へ正規化する（SCR-010で実際に踏んだ） |
+| クライアント/サーバー境界 | Client Component（"use client"）から `next/headers` 依存モジュールをimportするとビルド失敗。型/定数は `lib/api-types.ts` に分離する |
