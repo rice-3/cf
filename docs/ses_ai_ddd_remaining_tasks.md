@@ -14,8 +14,8 @@
 |---|---|---|
 | 1〜9 | Shared Kernel 〜 Identity/Admin/Audit（バックエンド全機能） | ✅ 完了 |
 | — | フロントエンド 全19画面（基本設計 §5.2） | ✅ 完了 |
-| 10 | CI/CD・スキャン・IaC（コア）・メトリクス公開・E2E（Playwright） | ✅ 完了 |
-| 10 | 監視アラート実配線・IaC（残リソース）・SES登録・運用手順 | ⬜ **残タスクの中心** |
+| 10 | CI/CD・スキャン・IaC（コア）・メトリクス公開・E2E・運用手順書 | ✅ 完了 |
+| 10 | 監視アラート実配線・IaC（残リソース）・SES登録 | ⬜ **残タスクの中心（主にAWS依存）** |
 
 - バックエンドの業務API（API-PJ/RV/FL/FD/PY/RF/US/AD/AU）は全系列実装済み。
 - 業務フローは「起案 → 審査 → 公開 → 支援 → 決済 → 募集終了 → 返金 → 通知」まで一気通貫で動作。
@@ -23,7 +23,8 @@
 - 監視メトリクス（Micrometer → `/actuator/prometheus`、ビジネス滞留/バッチ稼働/APIレイテンシ）と
   アラート閾値定義（`docs/ops/monitoring.md`）は完了。残るは監視基盤への実配線（§2.1）。
 - E2E（Playwright）で「起案→審査承認」ジャーニー・ロール別アクセス制御・運用コンソールを検証（`e2e.yml`）。
-- **残るのは運用基盤（監視の実配線・IaCの残リソース・SES登録・運用手順書）** と、少数の要判断事項・軽微なフォローアップ。
+- 運用手順書（`docs/ops/runbook.md`）を整備。
+- **残るのはほぼAWS依存の運用基盤（監視アラートの実配線・IaCの残リソース・SES登録）** と、少数の要判断事項・軽微なフォローアップ。
 
 ### 残タスク早見表
 
@@ -32,7 +33,6 @@
 | 高 | IaC | 未カバーAWSリソース（ACM/S3/SQS/SES/Cognito/WAF/VPCe/DBユーザー） | 2.1 |
 | 高 | 監視 | アラート閾値のCloudWatch/Alertmanager実配線（メトリクス公開は完了） | 2.1 |
 | 中 | 運用 | SESテンプレートのAWS実登録 | 3.1 |
-| 中 | 運用 | 運用手順書（バッチ再実行・返金・照合・障害切り分け） | 3.2 |
 | 低 | CI | CodeQL Kotlin対応後の java-kotlin 追加検討 | 4.1 |
 | 低 | CI | contract-first DTO自動生成 / swagger-ui 導入 | 4.1 |
 | 低 | CI | Java整形（google/palantir-java-format、JDK25対応後） | 4.1 |
@@ -61,10 +61,6 @@
 
 - [ ] 本文は `NotificationTemplateCatalog` を正として定義済み。`aws_sesv2_email_template` またはCLIで
       実登録する（テンプレートIDはカタログのキー）。§2.1 の SES ドメイン検証と併せて実施。
-
-### 3.2 運用手順書
-
-- [ ] バッチ再実行、返金の手動対応、決済照合、障害時の切り分け（相関ID/Trace追跡）手順。
 
 ---
 
@@ -140,6 +136,9 @@
   backend(local, `java -jar`) + frontend(`next start`) を起動して実行。ローカルは
   `docker compose up -d postgres` + `bootRun` + `npm run test:e2e`。公開→支援→決済→返金は
   バッチ・Webhook依存のためバックエンド結合テストで網羅（E2Eは画面到達可能な状態遷移を対象）。
+- **運用手順書** — `docs/ops/runbook.md`。バッチ運用（再実行方針）、決済照合、返金の手動対応、
+  Outbox滞留・通知失敗、障害切り分け（相関ID/監査ログ/メトリクス）、アラート→一次対応表、
+  デプロイ/ロールバックを記載。本番手動変更は監査対象（要件C-17）である旨を明記。
 
 ### 5.4 既知の暫定実装（要フォロー）
 
