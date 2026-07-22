@@ -192,7 +192,8 @@ class RequestSupportService(
                 reward.rewardPlanId,
                 command.quantity,
                 reward.version,
-            ) || retryReserve(reward.rewardPlanId, command.quantity)
+            ) ||
+                retryReserve(reward.rewardPlanId, command.quantity)
             if (!reserved) {
                 throw InvalidStateException(
                     "REWARD_SOLD_OUT",
