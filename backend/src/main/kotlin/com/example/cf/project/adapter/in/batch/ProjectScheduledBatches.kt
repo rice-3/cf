@@ -4,6 +4,7 @@ import com.example.cf.project.application.usecase.CloseFundingUseCase
 import com.example.cf.project.application.usecase.PublishApprovedProjectsUseCase
 import com.example.cf.shared.batch.BatchProperties
 import com.example.cf.shared.batch.batchAuditContext
+import com.example.cf.shared.observability.BatchMetrics
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
@@ -21,6 +22,7 @@ class ProjectScheduledBatches(
     private val publishApprovedProjects: PublishApprovedProjectsUseCase,
     private val closeFunding: CloseFundingUseCase,
     private val properties: BatchProperties,
+    private val batchMetrics: BatchMetrics,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -31,7 +33,11 @@ class ProjectScheduledBatches(
     fun publishApproved() {
         if (!properties.enabled) return
         runCatching { publishApprovedProjects.execute(properties.projectBatchSize, batchAuditContext()) }
-            .onFailure { log.error("BAT-001 publish batch failed", it) }
+            .onSuccess { batchMetrics.recordSuccess("BAT-001-publish") }
+            .onFailure {
+                log.error("BAT-001 publish batch failed", it)
+                batchMetrics.recordFailure("BAT-001-publish")
+            }
     }
 
     /** BAT-002 募集終了処理（1分ごと）。 */
@@ -40,6 +46,10 @@ class ProjectScheduledBatches(
     fun closeFundingPeriod() {
         if (!properties.enabled) return
         runCatching { closeFunding.execute(properties.projectBatchSize, batchAuditContext()) }
-            .onFailure { log.error("BAT-002 funding close batch failed", it) }
+            .onSuccess { batchMetrics.recordSuccess("BAT-002-close-funding") }
+            .onFailure {
+                log.error("BAT-002 funding close batch failed", it)
+                batchMetrics.recordFailure("BAT-002-close-funding")
+            }
     }
 }

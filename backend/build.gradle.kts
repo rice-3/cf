@@ -67,6 +67,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    // メトリクス公開（Micrometer → Prometheus形式、詳細設計 §12.5–12.6/§9.3）。
+    // actuatorの /actuator/prometheus を有効化する。OTel Collector/CloudWatch Agent が収集する想定。
+    runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
     // --- Kotlin ---
     // Boot 4はJackson 3（tools.jackson）が既定

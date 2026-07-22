@@ -4,6 +4,7 @@ import com.example.cf.notification.application.NotificationTransactionSteps
 import com.example.cf.notification.application.SendNotificationUseCase
 import com.example.cf.shared.batch.BatchProperties
 import com.example.cf.shared.batch.batchAuditContext
+import com.example.cf.shared.observability.BatchMetrics
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
@@ -18,6 +19,7 @@ class NotificationSendBatch(
     private val steps: NotificationTransactionSteps,
     private val sendNotification: SendNotificationUseCase,
     private val properties: BatchProperties,
+    private val batchMetrics: BatchMetrics,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -27,7 +29,11 @@ class NotificationSendBatch(
     fun send() {
         if (!properties.enabled) return
         runCatching { runBatch() }
-            .onFailure { log.error("BAT-005 notification batch failed", it) }
+            .onSuccess { batchMetrics.recordSuccess("BAT-005-notification") }
+            .onFailure {
+                log.error("BAT-005 notification batch failed", it)
+                batchMetrics.recordFailure("BAT-005-notification")
+            }
     }
 
     /** 対象取得と送信を分離し、外部送信中にトランザクションを保持しない。 */

@@ -1,5 +1,6 @@
 package com.example.cf.shared.outbox
 
+import com.example.cf.shared.observability.BatchMetrics
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.scheduling.annotation.Scheduled
@@ -42,9 +43,14 @@ class OutboxWorker(
     private val dispatcher: OutboxDispatcher,
     private val properties: OutboxProperties,
     private val clock: Clock,
+    private val batchMetrics: BatchMetrics,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
+
+    private companion object {
+        const val BATCH_NAME = "BAT-006-outbox"
+    }
 
     @Scheduled(fixedDelayString = "\${cf.outbox.fixed-delay-ms:5000}")
     fun run() {
@@ -52,7 +58,11 @@ class OutboxWorker(
             return
         }
         runCatching { publishBatch() }
-            .onFailure { log.error("Outbox batch failed", it) }
+            .onSuccess { batchMetrics.recordSuccess(BATCH_NAME) }
+            .onFailure {
+                log.error("Outbox batch failed", it)
+                batchMetrics.recordFailure(BATCH_NAME)
+            }
     }
 
     /**

@@ -5,6 +5,7 @@ import com.example.cf.payment.application.PaymentTransactionSteps
 import com.example.cf.payment.application.ReconcilePaymentUseCase
 import com.example.cf.shared.batch.BatchProperties
 import com.example.cf.shared.batch.batchAuditContext
+import com.example.cf.shared.observability.BatchMetrics
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
@@ -19,6 +20,7 @@ class PaymentScheduledBatches(
     private val executeRefund: ExecuteRefundUseCase,
     private val reconcilePayment: ReconcilePaymentUseCase,
     private val properties: BatchProperties,
+    private val batchMetrics: BatchMetrics,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -29,7 +31,11 @@ class PaymentScheduledBatches(
     fun executeRefunds() {
         if (!properties.enabled) return
         runCatching { runRefundBatch() }
-            .onFailure { log.error("BAT-004 refund batch failed", it) }
+            .onSuccess { batchMetrics.recordSuccess("BAT-004-refund") }
+            .onFailure {
+                log.error("BAT-004 refund batch failed", it)
+                batchMetrics.recordFailure("BAT-004-refund")
+            }
     }
 
     /**
@@ -52,6 +58,10 @@ class PaymentScheduledBatches(
     fun reconcilePayments() {
         if (!properties.enabled) return
         runCatching { reconcilePayment.executeBatch(properties.workerBatchSize, batchAuditContext()) }
-            .onFailure { log.error("BAT-007 reconciliation batch failed", it) }
+            .onSuccess { batchMetrics.recordSuccess("BAT-007-reconcile") }
+            .onFailure {
+                log.error("BAT-007 reconciliation batch failed", it)
+                batchMetrics.recordFailure("BAT-007-reconcile")
+            }
     }
 }

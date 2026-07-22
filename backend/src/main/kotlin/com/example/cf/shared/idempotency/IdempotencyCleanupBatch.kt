@@ -1,6 +1,7 @@
 package com.example.cf.shared.idempotency
 
 import com.example.cf.shared.batch.BatchProperties
+import com.example.cf.shared.observability.BatchMetrics
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component
 class IdempotencyCleanupBatch(
     private val useCase: IdempotencyCleanupUseCase,
     private val properties: BatchProperties,
+    private val batchMetrics: BatchMetrics,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -29,6 +31,11 @@ class IdempotencyCleanupBatch(
             if (deleted > 0) {
                 log.info("BAT-010 idempotency cleanup deleted {} expired records", deleted)
             }
-        }.onFailure { log.error("BAT-010 idempotency cleanup batch failed", it) }
+        }
+            .onSuccess { batchMetrics.recordSuccess("BAT-010-idempotency-cleanup") }
+            .onFailure {
+                log.error("BAT-010 idempotency cleanup batch failed", it)
+                batchMetrics.recordFailure("BAT-010-idempotency-cleanup")
+            }
     }
 }

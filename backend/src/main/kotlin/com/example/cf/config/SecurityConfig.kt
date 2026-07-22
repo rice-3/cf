@@ -68,6 +68,10 @@ private fun HttpSecurity.applyCommonRules(): HttpSecurity = this
         auth
             .requestMatchers(HttpMethod.GET, "/api/v1/projects", "/api/v1/projects/*").permitAll()
             .requestMatchers("/actuator/health/**", "/actuator/health").permitAll()
+            // メトリクス収集エンドポイント（詳細設計 §12.5/§9.3）。
+            // 本番ではALBがこのパスを外部公開しない前提（VPC内のCollector/CloudWatch Agentのみ到達）。
+            // 公開したくない場合は management.endpoints.web.exposure.include から prometheus を除く。
+            .requestMatchers("/actuator/prometheus", "/actuator/info").permitAll()
             // OpenAPI仕様（springdoc）。本番で公開したくない場合は springdoc.api-docs.enabled=false で無効化する。
             .requestMatchers("/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
             // エラー応答の内部ディスパッチ。認証必須にするとProblem Detailsの本文が失われる（§6.3）

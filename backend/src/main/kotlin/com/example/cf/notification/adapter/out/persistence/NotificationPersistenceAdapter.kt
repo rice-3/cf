@@ -7,6 +7,7 @@ import com.example.cf.notification.domain.repository.NotificationRepository
 import com.example.cf.shared.kernel.id.NotificationId
 import com.example.cf.shared.kernel.id.UlidGenerator
 import com.example.cf.shared.kernel.id.UserId
+import io.micrometer.core.instrument.MeterRegistry
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
@@ -124,6 +125,7 @@ class NotificationPersistenceAdapter(
     private val jpaRepository: NotificationJpaRepository,
     private val deliveryRepository: NotificationDeliveryJpaRepository,
     private val idGenerator: UlidGenerator,
+    private val meterRegistry: MeterRegistry,
 ) : NotificationRepository {
 
     override fun findById(id: NotificationId): Notification? = jpaRepository.findById(id.value).orElse(null)?.toDomain()
@@ -170,6 +172,8 @@ class NotificationPersistenceAdapter(
                 attemptedAt = attemptedAt,
             ),
         )
+        // 送信結果レート（cf_notification_delivery_total{result}）。失敗率アラートに用いる（詳細設計 §9.3）。
+        meterRegistry.counter("cf_notification_delivery_total", "result", result).increment()
     }
 
     private fun NotificationJpaEntity.toDomain() = Notification(

@@ -2,7 +2,7 @@
 
 - 対象リポジトリ: `F:\11\CF`（GitHub: `https://github.com/rice-3/cf.git`）
 - 上位文書: 基本設計 BD-CF-001 v1.2 / 詳細設計 DD-CF-001 v1.2（`G:\マイドライブ\CF\`）
-- 更新日: 2026-07-21（残タスク再整理）
+- 更新日: 2026-07-22（残タスク再整理: 完了済みを §5 へ集約）
 - 実装済み範囲の詳細は `ses_ai_ddd_implementation_status.md` を参照。
 - 本書は**残タスク**を主役とする。完了済みは §5 に要約のみ記載。
 
@@ -14,116 +14,73 @@
 |---|---|---|
 | 1〜9 | Shared Kernel 〜 Identity/Admin/Audit（バックエンド全機能） | ✅ 完了 |
 | — | フロントエンド 全19画面（基本設計 §5.2） | ✅ 完了 |
-| 10 | 監視・CI/CD・E2E・IaC・運用手順 | ⬜ **未着手（残タスクの中心）** |
+| 10 | CI/CD・スキャン・IaC（コア）・メトリクス公開 | ✅ 完了 |
+| 10 | 監視アラート実配線・E2E・IaC（残リソース）・運用手順 | ⬜ **残タスクの中心** |
 
 - バックエンドの業務API（API-PJ/RV/FL/FD/PY/RF/US/AD/AU）は全系列実装済み。
 - 業務フローは「起案 → 審査 → 公開 → 支援 → 決済 → 募集終了 → 返金 → 通知」まで一気通貫で動作。
-- **残るのは主に工程10（運用基盤）** と、少数のバックエンド追加API・要判断事項。
+- CI/CD 一式（ビルド/テスト/SAST/依存・コンテナscan/OpenAPI互換/Terraform検証/CD雛形）は構築・ゲート化済み。
+- 監視メトリクス（Micrometer → `/actuator/prometheus`、ビジネス滞留/バッチ稼働/APIレイテンシ）と
+  アラート閾値定義（`docs/ops/monitoring.md`）は完了。残るは監視基盤への実配線（§2.1）。
+- **残るのは運用基盤（監視の実配線・E2E・IaCの残リソース・運用手順書）** と、少数の要判断事項・軽微なフォローアップ。
+
+### 残タスク早見表
+
+| 優先 | 区分 | タスク | 節 |
+|---|---|---|---|
+| 高 | IaC | 未カバーAWSリソース（ACM/S3/SQS/SES/Cognito/WAF/VPCe/DBユーザー） | 2.1 |
+| 高 | 監視 | アラート閾値のCloudWatch/Alertmanager実配線（メトリクス公開は完了） | 2.1 |
+| 中 | テスト | Playwright E2E（主要ストーリー） | 3.1 |
+| 中 | 運用 | SESテンプレートのAWS実登録 | 3.2 |
+| 中 | 運用 | 運用手順書（バッチ再実行・返金・照合・障害切り分け） | 3.3 |
+| 低 | CI | CodeQL Kotlin対応後の java-kotlin 追加検討 | 4.1 |
+| 低 | CI | contract-first DTO自動生成 / swagger-ui 導入 | 4.1 |
+| 低 | CI | Java整形（google/palantir-java-format、JDK25対応後） | 4.1 |
+| 低 | 文書 | 設計書 `.docx` の v1.2 再出力 | 4.1 |
+| — | 判断 | 要判断事項 A〜E（人間の決定待ち） | 5 の後 §6 |
 
 ---
 
 ## 2. 残タスク（優先度: 高）
 
-### 2.1 CI/CD
+### 2.1 IaC — 未カバーのAWSリソースと監視の実配線（Terraform、ADR-007）
 
-- [x] **`.github/workflows/` のCI構築** — `ci.yml` / `codeql.yml` を作成（詳細設計 §13.4）。
-  - `ci.yml`: backend（Wrapper検証 → Corretto 25 → `gradlew build` = compile/unit/ArchUnit/
-    Testcontainers統合）、frontend（Node 24 → typecheck → build）、secret-scan（gitleaks）
-  - `codeql.yml`: SAST（**javascript-typescript**、フロントエンド）※パブリックリポジトリまたはGHASが必要
-  - `semgrep.yml`: **JVM側SAST（Kotlin/Java）** をSemgrepで実施。結果はCode Scanningへレポート
-- [x] **JVM側SAST（Kotlin/Java）の有効化** — CodeQLのKotlin抽出器がKotlin 2.4系に未対応
-  （`CODEQL_EXTRACTOR_KOTLIN_ALLOW_UNSUPPORTED_VERSION=true` でも抽出不可を確認）だったため、
-  **Semgrep**（`p/java` + `p/kotlin`）で代替。Semgrepはソース直接解析でコンパイル/JDK/Kotlin
-  バージョンに非依存。検出はCode Scanning（Securityタブ）へSARIF報告（現状はレポート方式で非ブロッキング）。
-  - [ ] CodeQLがKotlin 2.4対応後に `codeql.yml` へ java-kotlin を追加（Semgrepと併用 or 置換を判断）
-  - [ ] Semgrepをゲート化（`continue-on-error`除去 or `semgrep ci`）する場合は既存findingsの棚卸しが前提
-- [x] **format** — Spotless + ktlint 1.5.0 導入（`com.diffplug.spotless`）。`spotlessCheck` は
-  `check`→`build` に自動組込みでCIの `gradlew build` で検証。全ソースを `spotlessApply` 済み。
-  ktlintは `intellij_idea` スタイル。設計上の正当な命名のため `package-name`（`adapter.in.*`）/
-  `filename`（複数宣言まとめ）/ `max-line-length`（日本語コメント）を無効化。
-  - [ ] Java整形は未対応（google/palantir-java-format が JDK 25 で不安定なため）。JDK 25対応後に追加。
-- [x] **依存/ライセンスscan** — `security-scan.yml` の `dependency-license` ジョブ（Trivy fs）。
-  脆弱性はSARIFでCode Scanningへ、ライセンスはログにテーブル出力（いずれも非ブロッキング）。
-- [x] **コンテナscan** — `backend/Dockerfile`（マルチステージ、Corretto 25、非root）を追加し、
-  `security-scan.yml` の `container` ジョブでイメージをビルド→Trivy image スキャン→SARIF報告。
-- [x] **OpenAPI互換チェック** — springdoc 3.0.3（Boot 4対応）でコードからspec生成し、
-  `docs/api/openapi.yaml` へコミット。生成は決定論的（`OpenApiConfig` でinfo/servers固定、
-  `springdoc.writer-with-order-by-keys=true` でキーソート）。
-  - 鮮度ゲート: `OpenApiSpecIntegrationTest`（`gradlew build`）が実仕様とコミットspecの一致を検証。
-    API変更時にspec未更新なら失敗する（更新手順はテストのKDoc参照）。
-  - 互換ゲート: `openapi.yml` が oasdiff で base→現在のspecを比較し、破壊的変更（`--fail-on ERR`）で失敗。
-  - `/v3/api-docs.yaml` を公開（SecurityConfigで許可）。本番で隠す場合は `springdoc.api-docs.enabled=false`。
-  - [ ] contract-first のDTO自動生成（§6.15）は未対応（現状は code-first + spec生成）。UI（swagger-ui）も未導入。
-- [x] **スキャンのゲート化** — findings棚卸し（Code Scanning: Semgrep 0件 / Trivy high19・medium3、
-  うち high はすべてベースイメージ由来、fs依存とjacksonは medium）を実施のうえ、緑を保ちつつゲート化:
-  - Semgrep: `--error` でfindingsがあれば失敗（現状0件で緑）。
-  - Trivy fs（依存）: `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1` で、我々が更新で直せる
-    高深刻度のみブロック（現状0件で緑。ローカルTrivyでもexit 0確認）。
-  - Trivy コンテナ: ベースイメージ（AL2023）のOS脆弱性はCVE公開で増減するためレポート方式を継続。
-    是正はベースイメージ更新で行い、Code Scanningで追跡。
-- [x] **CD** — `cd.yml`（手動 `workflow_dispatch`、環境承認付き）。image build → ECR push →
-  ECS ローリング更新（`aws-actions/*`, OIDC）。前提の **Terraform（§3.3）を提供済み**（下記）。
-  残作業は「実AWSへ `terraform apply` → `terraform output` をGitHub Variablesへ設定」のみ。
-  AWS未提供のため実行（apply/deploy）検証は未実施。
-
-### 2.2 運用者向け検索API + SCR-060/061 の一覧UI化
-
-- [x] **運用者向け 支援検索 / 返金検索 API**
-  - `GET /api/v1/operations/supports`（状態・プロジェクトIDで横断検索、API-FD-004）と
-    `GET /api/v1/operations/refunds`（状態で絞り込み、API-RF-003）を追加。OPERATOR/ADMIN限定。
-  - 公開契約は `OperationsSupportSearchQuery`（funding.application）/ `RefundSearchQuery`（payment.application）
-    として定義し、Adapter（`SupportPersistenceAdapter` / `RefundPersistenceAdapter`）で実装。
-    支援一覧はプロジェクト名・決済状態を横断参照で付与する。
-  - OpenAPI spec（`docs/api/openapi.yaml`）を再生成、結合テスト（`OperationsApiIntegrationTest`）に
-    検索・状態フィルタ・認可のケースを追加。
-- [x] **SCR-060/061 の一覧・検索UI化**
-  - `operations` 画面を「支援管理（SCR-060）/ 返金管理（SCR-061）」のタブ付き一覧・検索UIへ拡張。
-    状態・プロジェクトIDでの検索、ページ送り、行内アクション（返金要求・決済照合・返金再実行）を提供。
-    暫定の「ID指定アクションコンソール」（`OperationsConsole.tsx`）は廃止。
+- [ ] **未カバーのAWSリソース** — HTTPS(ACM) / S3ファイルバケット / SQS / SES ドメイン検証 /
+      Cognito User Pool / WAF / VPCエンドポイント。アプリDBユーザーのプロビジョニング。
+  - コア構成（VPC/ECR/ECS/ALB/RDS/IAM(OIDC)/Secrets/Logs）は §5.3 で提供済み。本項はその上乗せ。
+  - 完了すると CD（`cd.yml`）が実AWSに対して機能する（残るは `apply` → `output` を GitHub Variables へ設定）。
+- [ ] **アラート閾値の実配線** — メトリクス公開とアラート閾値定義は完了（§5.3 / `docs/ops/monitoring.md`）。
+      CloudWatch Agent/OTel Collector で `/actuator/prometheus` を収集し、CloudWatch Alarm（or Alertmanager）へ
+      閾値を実設定する。ダッシュボード（CloudWatch/Grafana）も本項で作成。監視基盤のIaC化と併せて実施。
 
 ---
 
 ## 3. 残タスク（優先度: 中）
 
-### 3.1 監視・アラート（詳細設計 §12.5–12.6、§9.3）
-
-- [ ] メトリクス公開（Micrometer/OpenTelemetry）とアラート閾値設定
-  - `outbox_pending_count` / `oldest_outbox_age` / `notification_failure_rate` /
-    `refund_retry_count` / `batch_last_success_age` / API 5xx率 / p95 レイテンシ 等。
-
-### 3.2 E2Eテスト
+### 3.1 E2Eテスト
 
 - [ ] Playwrightで主要ユーザーストーリー（起案→審査→公開→支援→返金）を自動化（詳細設計 §14.4）。
 
-### 3.3 IaC（Terraform、ADR-007）
+### 3.2 SESテンプレートのAWS登録
 
-- [x] **コアAWS構成のTerraform化** — `infra/terraform/`（VPC / サブネット / NAT / SG / ECR /
-      ALB / ECS Fargate / RDS PostgreSQL 18 / IAM(タスク実行・タスク) / GitHub OIDC + デプロイロール /
-      Secrets Manager / CloudWatch Logs）。CI（`terraform.yml`）で fmt / init / validate 済み。
-      `apply` はAWS認証が必要なため手動運用（`infra/terraform/README.md`）。CDの前提を満たす。
-- [ ] **未カバーのAWSリソース** — HTTPS(ACM) / S3ファイルバケット / SQS / SES ドメイン検証 /
-      Cognito User Pool / WAF / VPCエンドポイント。アプリDBユーザーのプロビジョニング。
-- [ ] **SESテンプレートのAWS登録** — 本文は `NotificationTemplateCatalog` を正として定義済み。
-      `aws_sesv2_email_template` またはCLIで実登録する（テンプレートIDはカタログのキー）。
+- [ ] 本文は `NotificationTemplateCatalog` を正として定義済み。`aws_sesv2_email_template` またはCLIで
+      実登録する（テンプレートIDはカタログのキー）。§2.1 の SES ドメイン検証と併せて実施。
 
-### 3.4 運用手順書
+### 3.3 運用手順書
 
 - [ ] バッチ再実行、返金の手動対応、決済照合、障害時の切り分け（相関ID/Trace追跡）手順。
 
 ---
 
-## 4. 未確定・要判断事項（人間の決定待ち）
+## 4. 残タスク（優先度: 低 / フォローアップ）
 
-| # | 内容 | 影響・対応 |
-|---|---|---|
-| A | 監査アーカイブ（BAT-009）の実出力先（S3バケット・ストレージクラス・保持年数） | 現状はハッシュ算出のみのローカル実装。`LocalAuditArchiveAdapter` に `TODO(question)`。§3.3 Terraformと併せて確定 |
-| B | Outbox配送のSQS切替（現状 `InProcessOutboxDispatcher` のアプリ内配送） | マルチインスタンス構成時に必要。ADR候補（§3.3と関連） |
-| C | 未登録Cognito Subjectの初回JIT自動登録（既定ロールSUPPORTER）の可否 | `CognitoJwtAuthenticationConverter` に `TODO(question)`。許容しない場合は管理者Invite方式へ変更。dev投入前に承認要 |
-| D | ADR-BFF配置 / 決済非同期UI / Rich Text形式 の3件が未起票 | 該当機能の本格化時に起票（現状は既定動作で実装済み） |
-| E | Cognito実User Poolでの結合確認 | 未実施（テストはlocal/testの開発用ヘッダー認証のみ）。dev環境構築時に実施 |
+### 4.1 CI・文書の軽微なフォローアップ
 
-> 解決済みの要判断: 起案者向け通知の宛先解決（ADR-0002）、冪等記録削除バッチ（BAT-010）、
-> バッチ多重起動防止（ADR-0003: ShedLock）。詳細は §5。
+- [ ] **CodeQL Kotlin対応** — CodeQLがKotlin 2.4対応後、`codeql.yml` へ java-kotlin を追加
+      （現状Semgrepで代替中。Semgrepと併用 or 置換を判断）。
+- [ ] **contract-first DTO自動生成 / swagger-ui**（§6.15）— 現状は code-first + spec生成のみ。
+- [ ] **Java整形** — google/palantir-java-format が JDK 25 で不安定なため未対応。JDK25対応後に Spotless へ追加。
+- [ ] **設計書 `.docx` の再出力** — `.md` は両書 v1.2、`.docx` は v1.0 のまま。
 
 ---
 
@@ -160,20 +117,57 @@
 - 型/定数は `lib/api-types.ts`、`next/headers`依存の `backendFetch` は `lib/backend.ts`（server-only）に分離。
 - 実機（Docker+backend+frontend）で全ロール画面の表示・認可・主要フローを確認済み。
 
-### 5.3 既知の暫定実装（要フォロー）
+### 5.3 CI/CD・スキャン・IaC（工程10、構築済み）
 
-- **SCR-060/061（OPERATOR）**: 運用者向け検索API（支援検索/返金検索）を追加し、一覧・検索UIへ移行済み（§2.2 完了）。
+- **CI** — `ci.yml`: backend（Wrapper検証 → Corretto 25 → `gradlew build` = compile/unit/ArchUnit/
+  Testcontainers統合）、frontend（Node 24 → typecheck → build）、secret-scan（gitleaks）。
+- **format** — Spotless + ktlint 1.5.0（`spotlessCheck` を `build` に自動組込み）。
+- **SAST** — `codeql.yml`（JS/TS）+ `semgrep.yml`（JVM側 Kotlin/Java。CodeQLがKotlin 2.4未対応のため代替）。
+- **依存/ライセンス/コンテナscan** — `security-scan.yml`（Trivy fs + image。`backend/Dockerfile` はマルチ
+  ステージ/Corretto 25/非root）。ゲート化済み（Semgrep `--error` / Trivy fs は修正可能なHIGH,CRITICALで失敗、
+  コンテナは非ブロッキング・レポート方式）。
+- **OpenAPI** — springdoc 3.0.3 でコードから spec 生成 → `docs/api/openapi.yaml` にコミット。鮮度ゲート
+  （`OpenApiSpecIntegrationTest`）+ 互換ゲート（`openapi.yml` の oasdiff、破壊的変更で失敗）。
+- **IaC（コア）** — `infra/terraform/`（VPC / サブネット / NAT / SG / ECR / ALB / ECS Fargate /
+  RDS PostgreSQL 18 / IAM(タスク実行・タスク) / GitHub OIDC + デプロイロール / Secrets Manager /
+  CloudWatch Logs）。`terraform.yml` で fmt / init / validate。`apply` は手動運用（`infra/terraform/README.md`）。
+- **CD** — `cd.yml`（手動 `workflow_dispatch`、環境承認付き）。image build → ECR push → ECS ローリング更新
+  （OIDC）。実AWS未提供のため apply/deploy 検証は未実施（残: §2.1 のリソース整備後）。
+- **監視メトリクス** — Micrometer + `/actuator/prometheus`（`micrometer-registry-prometheus`）。
+  ビジネス滞留（`BusinessMetrics`: outbox/notification/refund の未処理・失敗ゲージ）、
+  バッチ稼働（`BatchMetrics`: `cf_batch_last_success_age_seconds` / `cf_batch_runs_total`）、
+  通知送信レート（`cf_notification_delivery_total`）、API レイテンシ/5xx（`http.server.requests` ヒストグラム）。
+  全メーターに `application` 共通タグ（`ObservabilityConfig`）。アラート閾値は `docs/ops/monitoring.md`。
+  結合テスト `MetricsIntegrationTest` で公開を検証。
+
+### 5.4 既知の暫定実装（要フォロー）
+
+- **SCR-060/061（OPERATOR）**: 運用者向け検索API（支援検索/返金検索）を追加し、一覧・検索UIへ移行済み。
 - **メイン画像アップロード**: local/testはS3スタブ（発行時点で完了扱い）のため実PUTを行わない。
   dev以上の実S3接続時はブラウザからの直接PUT追加が必要。
 
-### 5.4 その他
+### 5.5 その他
 
-- [x] git初回コミット・push済み（`main`）。
-- [ ] 設計書 `.docx` の再出力（`.md` は両書 v1.2、`.docx` は v1.0 のまま）。
+- [x] git初回コミット・push済み（`main`）。CI 全ワークフロー緑を維持。
 
 ---
 
-## 6. 実装時の注意点（既知の落とし穴）
+## 6. 未確定・要判断事項（人間の決定待ち）
+
+| # | 内容 | 影響・対応 |
+|---|---|---|
+| A | 監査アーカイブ（BAT-009）の実出力先（S3バケット・ストレージクラス・保持年数） | 現状はハッシュ算出のみのローカル実装。`LocalAuditArchiveAdapter` に `TODO(question)`。§2.1 Terraformと併せて確定 |
+| B | Outbox配送のSQS切替（現状 `InProcessOutboxDispatcher` のアプリ内配送） | マルチインスタンス構成時に必要。ADR候補（§2.1と関連） |
+| C | 未登録Cognito Subjectの初回JIT自動登録（既定ロールSUPPORTER）の可否 | `CognitoJwtAuthenticationConverter` に `TODO(question)`。許容しない場合は管理者Invite方式へ変更。dev投入前に承認要 |
+| D | ADR-BFF配置 / 決済非同期UI / Rich Text形式 の3件が未起票 | 該当機能の本格化時に起票（現状は既定動作で実装済み） |
+| E | Cognito実User Poolでの結合確認 | 未実施（テストはlocal/testの開発用ヘッダー認証のみ）。dev環境構築時に実施 |
+
+> 解決済みの要判断: 起案者向け通知の宛先解決（ADR-0002）、冪等記録削除バッチ（BAT-010）、
+> バッチ多重起動防止（ADR-0003: ShedLock）。詳細は §5。
+
+---
+
+## 7. 実装時の注意点（既知の落とし穴）
 
 同種の実装を追加する際の参考。
 
