@@ -26,11 +26,7 @@ public class ProfileService {
     private final AuditRecordPort auditPort;
     private final Clock clock;
 
-    public ProfileService(
-            AppUserPort userRepository,
-            UserRolePort roleRepository,
-            AuditRecordPort auditPort,
-            Clock clock) {
+    public ProfileService(AppUserPort userRepository, UserRolePort roleRepository, AuditRecordPort auditPort, Clock clock) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.auditPort = auditPort;
@@ -41,31 +37,21 @@ public class ProfileService {
     public ProfileView getProfile(String userId) {
         AppUserRecord user = requireUser(userId);
         List<String> roles = roleRepository.findRoles(userId);
-        return new ProfileView(
-                user.userId(), user.email(), user.displayName(), user.status(), roles,
-                user.version(), user.updatedAt());
+        return new ProfileView(user.userId(), user.email(), user.displayName(), user.status(), roles, user.version(), user.updatedAt());
     }
 
     /** API-US-002。EMAIL_ALREADY_USED(409) / OPTIMISTIC_LOCK_CONFLICT(409)。 */
     @Transactional
-    public ProfileUpdateResult updateProfile(
-            String userId,
-            String displayName,
-            String email,
-            long expectedVersion,
-            String correlationId,
-            String source,
-            String clientIpHash) {
+    public ProfileUpdateResult updateProfile(String userId, String displayName, String email, long expectedVersion, String correlationId,
+            String source, String clientIpHash) {
         AppUserRecord user = requireUser(userId);
         if (user.version() != expectedVersion) {
             throw new OptimisticLockConflictException(
-                    "Profile " + userId + " was updated by another user (expected="
-                            + expectedVersion + ", actual=" + user.version() + ")");
+                    "Profile " + userId + " was updated by another user (expected=" + expectedVersion + ", actual=" + user.version() + ")");
         }
 
         String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
-        if (!normalizedEmail.equalsIgnoreCase(user.email())
-                && userRepository.existsByEmailExcluding(normalizedEmail, userId)) {
+        if (!normalizedEmail.equalsIgnoreCase(user.email()) && userRepository.existsByEmailExcluding(normalizedEmail, userId)) {
             throw new InvalidStateException("EMAIL_ALREADY_USED", "Email is already used by another account");
         }
 
@@ -73,8 +59,7 @@ public class ProfileService {
         int updated = userRepository.updateProfile(userId, displayName, normalizedEmail, expectedVersion, now);
         if (updated == 0) {
             // 事前チェック後の競合（レースコンディション）。最新状態の再取得を促す。
-            throw new OptimisticLockConflictException(
-                    "Profile " + userId + " was updated by another user");
+            throw new OptimisticLockConflictException("Profile " + userId + " was updated by another user");
         }
 
         auditPort.record(userId, correlationId, source, clientIpHash, "PROFILE_UPDATE", "User", userId, "SUCCESS");
@@ -86,13 +71,7 @@ public class ProfileService {
                 .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND", "User " + userId + " is not found"));
     }
 
-    public record ProfileView(
-            String userId,
-            String email,
-            String displayName,
-            String status,
-            List<String> roles,
-            long version,
+    public record ProfileView(String userId, String email, String displayName, String status, List<String> roles, long version,
             Instant updatedAt) {
     }
 

@@ -26,45 +26,20 @@ public class AuditPersistenceAdapter implements AuditRecordPort {
     }
 
     @Override
-    public void record(
-            String actorUserId,
-            String correlationId,
-            String source,
-            String clientIpHash,
-            String action,
-            String resourceType,
-            String resourceId,
-            String result) {
+    public void record(String actorUserId, String correlationId, String source, String clientIpHash, String action, String resourceType,
+            String resourceId, String result) {
         record(actorUserId, correlationId, source, clientIpHash, action, resourceType, resourceId, result, null);
     }
 
     @Override
-    public void record(
-            String actorUserId,
-            String correlationId,
-            String source,
-            String clientIpHash,
-            String action,
-            String resourceType,
-            String resourceId,
-            String result,
-            Map<String, Object> detail) {
+    public void record(String actorUserId, String correlationId, String source, String clientIpHash, String action, String resourceType,
+            String resourceId, String result, Map<String, Object> detail) {
         Map<String, Object> merged = new HashMap<>();
         merged.put("source", source);
         if (detail != null) {
             merged.putAll(detail);
         }
-        repository.save(new AuditLogJpaEntity(
-                idGenerator.next(),
-                clock.instant(),
-                actorUserId,
-                action,
-                resourceType,
-                resourceId,
-                result,
-                correlationId,
-                merged,
-                clientIpHash
-        ));
+        repository.save(new AuditLogJpaEntity(idGenerator.next(), clock.instant(), actorUserId, action, resourceType, resourceId, result,
+                correlationId, merged, clientIpHash));
     }
 }

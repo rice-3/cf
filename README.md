@@ -98,9 +98,12 @@ IaC は `infra/terraform/`（VPC/ECR/ECS Fargate/ALB/RDS/IAM(OIDC)/Secrets/Cloud
 コンテナ（ベースイメージ）はレポート方式。
 
 OpenAPI仕様は springdoc で生成し `docs/api/openapi.yaml` にコミット。`OpenApiSpecIntegrationTest` が
-コードとspecの一致を検証、`/v3/api-docs.yaml` で参照可能。
+コードとspecの一致を検証、`/v3/api-docs.yaml` で参照可能。Swagger UI は `/swagger-ui.html`
+（本番は `springdoc.swagger-ui.enabled=false` で無効化可）。フロントの型は spec から生成でき
+（`cd frontend && npm run gen:api-types` → `src/lib/generated/api.ts`）、CIで再生成差分を検証する。
 
-コード整形は Spotless + ktlint（`./gradlew spotlessApply` で整形、`spotlessCheck` は `build` に自動組込み）。
+コード整形は Spotless（`./gradlew spotlessApply` で整形、`spotlessCheck` は `build` に自動組込み）。
+Kotlin は ktlint、Java は Eclipse JDT フォーマッタ（JDK 25 で動作。google/palantir は内部API非互換のため不採用）。
 コンテナは `backend/Dockerfile`（マルチステージ / Corretto 25 / 非root）。
 
 監視は Micrometer で `/actuator/prometheus` にメトリクスを公開（ビジネス滞留・バッチ稼働・APIレイテンシ）。

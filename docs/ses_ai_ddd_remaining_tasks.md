@@ -69,10 +69,14 @@
 ### 4.1 CI・文書の軽微なフォローアップ
 
 - [ ] **CodeQL Kotlin対応** — CodeQLがKotlin 2.4対応後、`codeql.yml` へ java-kotlin を追加
-      （現状Semgrepで代替中。Semgrepと併用 or 置換を判断）。
-- [ ] **contract-first DTO自動生成 / swagger-ui**（§6.15）— 現状は code-first + spec生成のみ。
-- [ ] **Java整形** — google/palantir-java-format が JDK 25 で不安定なため未対応。JDK25対応後に Spotless へ追加。
-- [ ] **設計書 `.docx` の再出力** — `.md` は両書 v1.2、`.docx` は v1.0 のまま。
+      （現状Semgrepで代替中。Semgrepと併用 or 置換を判断）。※上流（CodeQL）待ち。
+- [x] **contract-first DTO自動生成 / swagger-ui**（§6.15）— 完了（§5.3）。
+      swagger-ui（`/swagger-ui.html`）導入、フロント型を spec から生成（`npm run gen:api-types`）+ CI鮮度ゲート。
+- [x] **Java整形** — 完了（§5.3）。google/palantir は JDK 25 で javac 内部API非互換のため、
+      JDK非依存の Eclipse JDT フォーマッタを Spotless に採用（コメントは保全しコードのみ整形）。
+- [x] **設計書 `.docx` の再出力** — 完了。`G:\マイドライブ\CF` の md から pandoc で再生成
+      （原本の書式を `--reference-doc` で継承、旧版は `*.v1.0.docx` として退避）。
+      なお md の版数表は両書とも「1.0」で、当初の「v1.2」記載は事実誤りだったため docx と内容を同期した。
 
 ---
 
@@ -120,6 +124,12 @@
   コンテナは非ブロッキング・レポート方式）。
 - **OpenAPI** — springdoc 3.0.3 でコードから spec 生成 → `docs/api/openapi.yaml` にコミット。鮮度ゲート
   （`OpenApiSpecIntegrationTest`）+ 互換ゲート（`openapi.yml` の oasdiff、破壊的変更で失敗）。
+  **Swagger UI**（`springdoc-openapi-starter-webmvc-ui`）を `/swagger-ui.html` で提供（本番は
+  `springdoc.swagger-ui.enabled=false` で無効化可）。**contract-first 型生成**: `openapi-typescript` で
+  spec からフロント型を生成（`npm run gen:api-types` → `frontend/src/lib/generated/api.ts`）、
+  CIで再生成差分ゲート（`ci.yml`）。
+- **コード整形（Java）** — Spotless に Eclipse JDT フォーマッタ（`spotless-java.properties`）を追加。
+  google/palantir は JDK 25 で javac 内部API非互換のため不採用。コメントは保全しコードのみ整形。
 - **IaC（コア）** — `infra/terraform/`（VPC / サブネット / NAT / SG / ECR / ALB / ECS Fargate /
   RDS PostgreSQL 18 / IAM(タスク実行・タスク) / GitHub OIDC + デプロイロール / Secrets Manager /
   CloudWatch Logs）。`terraform.yml` で fmt / init / validate。`apply` は手動運用（`infra/terraform/README.md`）。

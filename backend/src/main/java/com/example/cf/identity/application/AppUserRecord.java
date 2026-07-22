@@ -8,13 +8,6 @@ import java.time.Instant;
  * <p>Identityは単純CRUDが中心のため、リッチな集約ではなくPort越しの素朴なレコード表現とする
  * （要件定義 §4.4-8、基本設計 A-10: DDDの過剰適用を避ける）。</p>
  */
-public record AppUserRecord(
-        String userId,
-        String cognitoSubject,
-        String email,
-        String displayName,
-        String status,
-        long version,
-        Instant createdAt,
-        Instant updatedAt) {
+public record AppUserRecord(String userId, String cognitoSubject, String email, String displayName, String status, long version,
+        Instant createdAt, Instant updatedAt) {
 }

@@ -25,30 +25,15 @@ public interface AuditRecordPort {
      * @param resourceId    対象リソースID
      * @param result        SUCCESS / FAILURE
      */
-    void record(
-            String actorUserId,
-            String correlationId,
-            String source,
-            String clientIpHash,
-            String action,
-            String resourceType,
-            String resourceId,
-            String result);
+    void record(String actorUserId, String correlationId, String source, String clientIpHash, String action, String resourceType,
+            String resourceId, String result);
 
     /**
      * 追加詳細（変更理由・変更後ロール等）を伴う記録（工程9: USER_ROLE_UPDATE/USER_SUSPEND用）。
      * 既定実装は detail を無視して従来の8引数メソッドへ委譲するため、既存呼出し元に影響しない。
      */
-    default void record(
-            String actorUserId,
-            String correlationId,
-            String source,
-            String clientIpHash,
-            String action,
-            String resourceType,
-            String resourceId,
-            String result,
-            Map<String, Object> detail) {
+    default void record(String actorUserId, String correlationId, String source, String clientIpHash, String action, String resourceType,
+            String resourceId, String result, Map<String, Object> detail) {
         record(actorUserId, correlationId, source, clientIpHash, action, resourceType, resourceId, result);
     }
 }

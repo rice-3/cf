@@ -22,11 +22,6 @@ public interface AiActivityLogJpaRepository extends JpaRepository<AiActivityLogJ
                and (:actionType is null or a.actionType = :actionType)
              order by a.occurredAt desc
             """)
-    Page<AiActivityLogJpaEntity> search(
-            @Param("from") Instant from,
-            @Param("to") Instant to,
-            @Param("actorUserId") String actorUserId,
-            @Param("toolName") String toolName,
-            @Param("actionType") String actionType,
-            Pageable pageable);
+    Page<AiActivityLogJpaEntity> search(@Param("from") Instant from, @Param("to") Instant to, @Param("actorUserId") String actorUserId,
+            @Param("toolName") String toolName, @Param("actionType") String actionType, Pageable pageable);
 }

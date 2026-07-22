@@ -26,8 +26,7 @@ public interface AppUserPort {
     /** ロールのみ変更する場合の楽観ロック用バージョン更新（API-AD-002。roleはuser_role側で管理）。 */
     int touchVersion(String userId, long expectedVersion, Instant now);
 
-    void insert(
-            String userId, String cognitoSubject, String email, String displayName, String status, Instant now);
+    void insert(String userId, String cognitoSubject, String email, String displayName, String status, Instant now);
 
     /** API-AD-001 会員検索。keyword/statusはいずれも任意。 */
     SearchResult search(String keyword, String status, int page, int size);

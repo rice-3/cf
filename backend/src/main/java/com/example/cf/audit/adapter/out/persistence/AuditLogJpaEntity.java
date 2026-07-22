@@ -54,17 +54,8 @@ public class AuditLogJpaEntity {
         // for JPA
     }
 
-    public AuditLogJpaEntity(
-            String auditId,
-            Instant occurredAt,
-            String actorUserId,
-            String action,
-            String resourceType,
-            String resourceId,
-            String result,
-            String correlationId,
-            Map<String, Object> detail,
-            String clientIpHash) {
+    public AuditLogJpaEntity(String auditId, Instant occurredAt, String actorUserId, String action, String resourceType, String resourceId,
+            String result, String correlationId, Map<String, Object> detail, String clientIpHash) {
         this.auditId = auditId;
         this.occurredAt = occurredAt;
         this.actorUserId = actorUserId;

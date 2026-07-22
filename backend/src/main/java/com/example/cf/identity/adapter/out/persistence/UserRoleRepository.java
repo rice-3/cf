@@ -23,31 +23,25 @@ public class UserRoleRepository implements UserRolePort {
 
     @Override
     public List<String> findRoles(String userId) {
-        return jdbcTemplate.queryForList(
-                "select role_code from user_role where user_id = ? order by role_code", String.class, userId);
+        return jdbcTemplate.queryForList("select role_code from user_role where user_id = ? order by role_code", String.class, userId);
     }
 
     @Override
     public List<String> findAssignableRoleCodes() {
-        return jdbcTemplate.queryForList(
-                "select role_code from role where assignable = true order by role_code", String.class);
+        return jdbcTemplate.queryForList("select role_code from role where assignable = true order by role_code", String.class);
     }
 
     @Override
     public void replaceRoles(String userId, List<String> roles, String assignedBy, Instant now) {
         jdbcTemplate.update("delete from user_role where user_id = ?", userId);
         Timestamp ts = Timestamp.from(now);
-        jdbcTemplate.batchUpdate(
-                "insert into user_role (user_id, role_code, assigned_at, assigned_by) values (?, ?, ?, ?)",
-                roles.stream()
-                        .map(role -> new Object[] {userId, role, ts, assignedBy})
-                        .toList());
+        jdbcTemplate.batchUpdate("insert into user_role (user_id, role_code, assigned_at, assigned_by) values (?, ?, ?, ?)",
+                roles.stream().map(role -> new Object[]{userId, role, ts, assignedBy}).toList());
     }
 
     @Override
     public void insertRole(String userId, String role, String assignedBy, Instant now) {
-        jdbcTemplate.update(
-                "insert into user_role (user_id, role_code, assigned_at, assigned_by) values (?, ?, ?, ?)",
-                userId, role, Timestamp.from(now), assignedBy);
+        jdbcTemplate.update("insert into user_role (user_id, role_code, assigned_at, assigned_by) values (?, ?, ?, ?)", userId, role,
+                Timestamp.from(now), assignedBy);
     }
 }

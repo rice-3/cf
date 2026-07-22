@@ -24,6 +24,13 @@ springdoc:
   writer-with-order-by-keys: true
   api-docs:
     enabled: true
+  # Swagger UI（/swagger-ui.html）。本番で隠す場合は enabled: false（SecurityConfigの許可も実質無効化）。
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    # 操作の並びを安定表示
+    operations-sorter: alpha
+    tags-sorter: alpha
 
 server:
   port: 8080

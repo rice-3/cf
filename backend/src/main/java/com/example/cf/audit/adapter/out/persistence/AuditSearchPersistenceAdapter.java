@@ -21,42 +21,32 @@ public class AuditSearchPersistenceAdapter implements AuditSearchQuery {
     private final AuditLogJpaRepository auditLogRepository;
     private final AiActivityLogJpaRepository aiActivityLogRepository;
 
-    public AuditSearchPersistenceAdapter(
-            AuditLogJpaRepository auditLogRepository,
-            AiActivityLogJpaRepository aiActivityLogRepository) {
+    public AuditSearchPersistenceAdapter(AuditLogJpaRepository auditLogRepository, AiActivityLogJpaRepository aiActivityLogRepository) {
         this.auditLogRepository = auditLogRepository;
         this.aiActivityLogRepository = aiActivityLogRepository;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PageResult<AuditLogItem> searchAuditLogs(
-            Instant from, Instant to, String actorUserId, String action,
-            String resourceType, String resourceId, int page, int size) {
-        Page<AuditLogJpaEntity> result = auditLogRepository.search(
-                from, to, actorUserId, action, resourceType, resourceId,
+    public PageResult<AuditLogItem> searchAuditLogs(Instant from, Instant to, String actorUserId, String action, String resourceType,
+            String resourceId, int page, int size) {
+        Page<AuditLogJpaEntity> result = auditLogRepository.search(from, to, actorUserId, action, resourceType, resourceId,
                 PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "occurredAt")));
         List<AuditLogItem> items = result.getContent().stream()
-                .map(e -> new AuditLogItem(
-                        e.getAuditId(), e.getOccurredAt(), e.getActorUserId(), e.getAction(),
-                        e.getResourceType(), e.getResourceId(), e.getResult(), e.getCorrelationId(),
-                        e.getDetail()))
+                .map(e -> new AuditLogItem(e.getAuditId(), e.getOccurredAt(), e.getActorUserId(), e.getAction(), e.getResourceType(),
+                        e.getResourceId(), e.getResult(), e.getCorrelationId(), e.getDetail()))
                 .toList();
         return toPageResult(items, page, size, result.getTotalElements());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PageResult<AiActivityLogItem> searchAiActivities(
-            Instant from, Instant to, String actorUserId, String toolName, String actionType,
-            int page, int size) {
-        Page<AiActivityLogJpaEntity> result = aiActivityLogRepository.search(
-                from, to, actorUserId, toolName, actionType,
+    public PageResult<AiActivityLogItem> searchAiActivities(Instant from, Instant to, String actorUserId, String toolName,
+            String actionType, int page, int size) {
+        Page<AiActivityLogJpaEntity> result = aiActivityLogRepository.search(from, to, actorUserId, toolName, actionType,
                 PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "occurredAt")));
-        List<AiActivityLogItem> items = result.getContent().stream()
-                .map(e -> new AiActivityLogItem(
-                        e.getAiActivityId(), e.getOccurredAt(), e.getActorUserId(), e.getToolName(),
-                        e.getTaskId(), e.getActionType(), e.getRepository(), e.getResult(), e.getApprovedBy()))
+        List<AiActivityLogItem> items = result.getContent().stream().map(e -> new AiActivityLogItem(e.getAiActivityId(), e.getOccurredAt(),
+                e.getActorUserId(), e.getToolName(), e.getTaskId(), e.getActionType(), e.getRepository(), e.getResult(), e.getApprovedBy()))
                 .toList();
         return toPageResult(items, page, size, result.getTotalElements());
     }

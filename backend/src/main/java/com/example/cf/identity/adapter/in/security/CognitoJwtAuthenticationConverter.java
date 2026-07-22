@@ -42,10 +42,7 @@ public class CognitoJwtAuthenticationConverter implements Converter<Jwt, Abstrac
     private final UlidGenerator idGenerator;
     private final Clock clock;
 
-    public CognitoJwtAuthenticationConverter(
-            AppUserRepository userRepository,
-            UserRoleRepository roleRepository,
-            UlidGenerator idGenerator,
+    public CognitoJwtAuthenticationConverter(AppUserRepository userRepository, UserRoleRepository roleRepository, UlidGenerator idGenerator,
             Clock clock) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -61,8 +58,7 @@ public class CognitoJwtAuthenticationConverter implements Converter<Jwt, Abstrac
             throw invalidToken("Cognito token does not contain a subject claim");
         }
 
-        AppUserRecord user = userRepository.findByCognitoSubject(subject)
-                .orElseGet(() -> provisionUser(subject, jwt));
+        AppUserRecord user = userRepository.findByCognitoSubject(subject).orElseGet(() -> provisionUser(subject, jwt));
 
         if (!"ACTIVE".equals(user.status())) {
             throw invalidToken("User account is not active: " + user.status());
@@ -72,8 +68,7 @@ public class CognitoJwtAuthenticationConverter implements Converter<Jwt, Abstrac
         Instant now = clock.instant();
         CurrentUser currentUser = CurrentUserFactoryKt.currentUserOf(user.userId(), roleNames, now);
 
-        List<GrantedAuthority> authorities = roleNames.stream()
-                .map(role -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + role))
+        List<GrantedAuthority> authorities = roleNames.stream().map(role -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + role))
                 .toList();
         return new UsernamePasswordAuthenticationToken(currentUser, jwt, authorities);
     }
@@ -84,13 +79,8 @@ public class CognitoJwtAuthenticationConverter implements Converter<Jwt, Abstrac
         String email = jwt.getClaimAsString("email");
         String displayName = jwt.getClaimAsString("name");
         Instant now = clock.instant();
-        userRepository.insert(
-                userId,
-                subject,
-                email != null ? email : subject + "@cognito.invalid",
-                displayName != null ? displayName : "New User",
-                "ACTIVE",
-                now);
+        userRepository.insert(userId, subject, email != null ? email : subject + "@cognito.invalid",
+                displayName != null ? displayName : "New User", "ACTIVE", now);
         roleRepository.insertRole(userId, "SUPPORTER", "SYSTEM_JIT_PROVISIONING", now);
         return userRepository.findById(userId).orElseThrow();
     }

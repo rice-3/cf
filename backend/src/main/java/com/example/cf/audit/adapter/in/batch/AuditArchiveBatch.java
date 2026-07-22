@@ -33,11 +33,7 @@ public class AuditArchiveBatch {
     private final BatchProperties properties;
     private final Clock clock;
 
-    public AuditArchiveBatch(
-            JdbcTemplate jdbcTemplate,
-            AuditArchivePort archivePort,
-            BatchProperties properties,
-            Clock clock) {
+    public AuditArchiveBatch(JdbcTemplate jdbcTemplate, AuditArchivePort archivePort, BatchProperties properties, Clock clock) {
         this.jdbcTemplate = jdbcTemplate;
         this.archivePort = archivePort;
         this.properties = properties;
@@ -61,23 +57,15 @@ public class AuditArchiveBatch {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int runBatch() {
         Instant now = clock.instant();
-        int archived = archiveTable(
-                "audit_log",
-                "audit_id",
-                "occurred_at",
-                now.minus(properties.getAuditRetentionDays(), ChronoUnit.DAYS));
-        archived += archiveTable(
-                "ai_activity_log",
-                "ai_activity_id",
-                "occurred_at",
+        int archived = archiveTable("audit_log", "audit_id", "occurred_at", now.minus(properties.getAuditRetentionDays(), ChronoUnit.DAYS));
+        archived += archiveTable("ai_activity_log", "ai_activity_id", "occurred_at",
                 now.minus(properties.getAiActivityRetentionDays(), ChronoUnit.DAYS));
         return archived;
     }
 
     private int archiveTable(String table, String idColumn, String timeColumn, Instant threshold) {
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select * from " + table + " where " + timeColumn + " < ? order by " + timeColumn,
-                Timestamp.from(threshold));
+        List<Map<String, Object>> rows = jdbcTemplate
+                .queryForList("select * from " + table + " where " + timeColumn + " < ? order by " + timeColumn, Timestamp.from(threshold));
         if (rows.isEmpty()) {
             return 0;
         }
@@ -90,8 +78,7 @@ public class AuditArchiveBatch {
             return 0;
         }
 
-        int deleted = jdbcTemplate.update(
-                "delete from " + table + " where " + timeColumn + " < ?", Timestamp.from(threshold));
+        int deleted = jdbcTemplate.update("delete from " + table + " where " + timeColumn + " < ?", Timestamp.from(threshold));
         if (deleted != rows.size()) {
             // 件数不一致はロールバックして次回に持ち越す
             throw new IllegalStateException(

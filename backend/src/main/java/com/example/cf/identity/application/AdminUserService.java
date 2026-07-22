@@ -27,11 +27,7 @@ public class AdminUserService {
     private final AuditRecordPort auditPort;
     private final Clock clock;
 
-    public AdminUserService(
-            AppUserPort userRepository,
-            UserRolePort roleRepository,
-            AuditRecordPort auditPort,
-            Clock clock) {
+    public AdminUserService(AppUserPort userRepository, UserRolePort roleRepository, AuditRecordPort auditPort, Clock clock) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.auditPort = auditPort;
@@ -41,11 +37,8 @@ public class AdminUserService {
     /** API-AD-001。 */
     public PageResult<AdminUserListItem> search(String keyword, String status, int page, int size) {
         AppUserPort.SearchResult result = userRepository.search(keyword, status, page, size);
-        List<AdminUserListItem> items = result.items().stream()
-                .map(u -> new AdminUserListItem(
-                        u.userId(), u.email(), u.displayName(), u.status(),
-                        roleRepository.findRoles(u.userId()), u.version(), u.createdAt(), u.updatedAt()))
-                .toList();
+        List<AdminUserListItem> items = result.items().stream().map(u -> new AdminUserListItem(u.userId(), u.email(), u.displayName(),
+                u.status(), roleRepository.findRoles(u.userId()), u.version(), u.createdAt(), u.updatedAt())).toList();
         int totalPages = size == 0 ? 0 : (int) ((result.totalElements() + size - 1) / size);
         return new PageResult<>(items, page, size, result.totalElements(), totalPages);
     }
@@ -55,83 +48,60 @@ public class AdminUserService {
      * 409 OPTIMISTIC_LOCK_CONFLICT。
      */
     @Transactional
-    public AdminUserRoleUpdateResult updateRoles(
-            String targetUserId,
-            List<String> roles,
-            long expectedVersion,
-            String reason,
-            String actingUserId,
-            String correlationId,
-            String source,
-            String clientIpHash) {
+    public AdminUserRoleUpdateResult updateRoles(String targetUserId, List<String> roles, long expectedVersion, String reason,
+            String actingUserId, String correlationId, String source, String clientIpHash) {
         validateRoles(roles);
         if (actingUserId.equals(targetUserId) && !roles.contains("ADMIN")) {
-            throw new AccessDeniedException(
-                    "ROLE_UPDATE_FORBIDDEN", "Admin cannot remove own ADMIN role");
+            throw new AccessDeniedException("ROLE_UPDATE_FORBIDDEN", "Admin cannot remove own ADMIN role");
         }
 
         requireUser(targetUserId);
         Instant now = clock.instant();
         int updated = userRepository.touchVersion(targetUserId, expectedVersion, now);
         if (updated == 0) {
-            throw new OptimisticLockConflictException(
-                    "User " + targetUserId + " was updated by another user");
+            throw new OptimisticLockConflictException("User " + targetUserId + " was updated by another user");
         }
 
         List<String> distinctRoles = roles.stream().distinct().toList();
         roleRepository.replaceRoles(targetUserId, distinctRoles, actingUserId, now);
 
-        auditPort.record(
-                actingUserId, correlationId, source, clientIpHash,
-                "USER_ROLE_UPDATE", "User", targetUserId, "SUCCESS",
+        auditPort.record(actingUserId, correlationId, source, clientIpHash, "USER_ROLE_UPDATE", "User", targetUserId, "SUCCESS",
                 Map.of("roles", distinctRoles, "reason", reason));
         return new AdminUserRoleUpdateResult(targetUserId, distinctRoles, expectedVersion + 1);
     }
 
     /** API-AD-003。403 USER_SUSPEND_FORBIDDEN（自己停止禁止）、409 USER_INVALID_STATE（停止済み）。 */
     @Transactional
-    public AdminUserSuspendResult suspend(
-            String targetUserId,
-            long expectedVersion,
-            String reason,
-            String actingUserId,
-            String correlationId,
-            String source,
-            String clientIpHash) {
+    public AdminUserSuspendResult suspend(String targetUserId, long expectedVersion, String reason, String actingUserId,
+            String correlationId, String source, String clientIpHash) {
         if (actingUserId.equals(targetUserId)) {
             throw new AccessDeniedException("USER_SUSPEND_FORBIDDEN", "Cannot suspend own account");
         }
 
         AppUserRecord target = requireUser(targetUserId);
         if ("SUSPENDED".equals(target.status())) {
-            throw new InvalidStateException(
-                    "USER_INVALID_STATE", "User " + targetUserId + " is already suspended");
+            throw new InvalidStateException("USER_INVALID_STATE", "User " + targetUserId + " is already suspended");
         }
 
         Instant now = clock.instant();
         int updated = userRepository.updateStatus(targetUserId, "SUSPENDED", expectedVersion, now);
         if (updated == 0) {
-            throw new OptimisticLockConflictException(
-                    "User " + targetUserId + " was updated by another user");
+            throw new OptimisticLockConflictException("User " + targetUserId + " was updated by another user");
         }
 
-        auditPort.record(
-                actingUserId, correlationId, source, clientIpHash,
-                "USER_SUSPEND", "User", targetUserId, "SUCCESS",
+        auditPort.record(actingUserId, correlationId, source, clientIpHash, "USER_SUSPEND", "User", targetUserId, "SUCCESS",
                 reason == null || reason.isBlank() ? Collections.emptyMap() : Map.of("reason", reason));
         return new AdminUserSuspendResult(targetUserId, "SUSPENDED", expectedVersion + 1);
     }
 
     private void validateRoles(List<String> roles) {
         if (roles == null || roles.isEmpty()) {
-            throw new ValidationException(
-                    "VALIDATION_ERROR", "roles must contain at least one role", Collections.emptyList());
+            throw new ValidationException("VALIDATION_ERROR", "roles must contain at least one role", Collections.emptyList());
         }
         List<String> assignable = roleRepository.findAssignableRoleCodes();
         for (String role : roles) {
             if (!assignable.contains(role)) {
-                throw new ValidationException(
-                        "VALIDATION_ERROR", "role is not assignable: " + role, Collections.emptyList());
+                throw new ValidationException("VALIDATION_ERROR", "role is not assignable: " + role, Collections.emptyList());
             }
         }
     }
@@ -141,15 +111,8 @@ public class AdminUserService {
                 .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND", "User " + userId + " is not found"));
     }
 
-    public record AdminUserListItem(
-            String userId,
-            String email,
-            String displayName,
-            String status,
-            List<String> roles,
-            long version,
-            Instant createdAt,
-            Instant updatedAt) {
+    public record AdminUserListItem(String userId, String email, String displayName, String status, List<String> roles, long version,
+            Instant createdAt, Instant updatedAt) {
     }
 
     public record AdminUserRoleUpdateResult(String userId, List<String> roles, long version) {

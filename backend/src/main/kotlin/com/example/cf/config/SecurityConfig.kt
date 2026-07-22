@@ -74,6 +74,8 @@ private fun HttpSecurity.applyCommonRules(): HttpSecurity = this
             .requestMatchers("/actuator/prometheus", "/actuator/info").permitAll()
             // OpenAPI仕様（springdoc）。本番で公開したくない場合は springdoc.api-docs.enabled=false で無効化する。
             .requestMatchers("/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
+            // Swagger UI（springdoc）。本番で隠す場合は springdoc.swagger-ui.enabled=false（下記application.yml）。
+            .requestMatchers("/swagger-ui/**", "/swagger-ui.html").permitAll()
             // エラー応答の内部ディスパッチ。認証必須にするとProblem Detailsの本文が失われる（§6.3）
             .requestMatchers("/error").permitAll()
             // Webhookの認証はProvider署名検証で行う（詳細設計 §6.8）。署名不正は401。

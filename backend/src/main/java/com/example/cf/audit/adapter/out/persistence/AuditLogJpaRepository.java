@@ -23,12 +23,7 @@ public interface AuditLogJpaRepository extends JpaRepository<AuditLogJpaEntity, 
                and (:resourceId is null or a.resourceId = :resourceId)
              order by a.occurredAt desc
             """)
-    Page<AuditLogJpaEntity> search(
-            @Param("from") Instant from,
-            @Param("to") Instant to,
-            @Param("actorUserId") String actorUserId,
-            @Param("action") String action,
-            @Param("resourceType") String resourceType,
-            @Param("resourceId") String resourceId,
+    Page<AuditLogJpaEntity> search(@Param("from") Instant from, @Param("to") Instant to, @Param("actorUserId") String actorUserId,
+            @Param("action") String action, @Param("resourceType") String resourceType, @Param("resourceId") String resourceId,
             Pageable pageable);
 }

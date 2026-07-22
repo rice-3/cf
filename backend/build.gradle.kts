@@ -35,6 +35,13 @@ spotless {
         target("*.gradle.kts")
         ktlint("1.5.0").editorConfigOverride(ktlintOverrides)
     }
+    java {
+        // 副言語のJava（audit/identity系）を整形する。
+        // google/palantir-java-format は javac 内部APIに依存しJDK 25で動作しない（NoSuchMethodError）ため、
+        // 自己完結でJDKバージョン非依存な Eclipse JDT フォーマッタを用いる（環境差の整形差分も出ない）。
+        target("src/**/*.java")
+        eclipse("4.33").configFile("spotless-java.properties")
+    }
 }
 
 group = "com.example.cf"
@@ -91,8 +98,10 @@ dependencies {
     implementation("net.javacrumbs.shedlock:shedlock-spring:7.7.0")
     implementation("net.javacrumbs.shedlock:shedlock-provider-jdbc-template:7.7.0")
 
-    // --- OpenAPI仕様の生成（コードからspec生成、詳細設計 §6.15/§13.4）。springdoc 3.x は Spring Boot 4対応 ---
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.0.3")
+    // --- OpenAPI仕様の生成 + Swagger UI（詳細設計 §6.15/§13.4）。springdoc 3.x は Spring Boot 4対応 ---
+    // -ui は -api を含み、/swagger-ui.html でインタラクティブなAPIドキュメントを提供する。
+    // 本番で隠す場合は springdoc.swagger-ui.enabled=false / api-docs.enabled=false（application.yml）。
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
 
     // --- ID採番（ULID, 詳細設計 §3.3） ---
     implementation("com.github.f4b6a3:ulid-creator:5.2.3")
