@@ -75,13 +75,35 @@ terraform apply
 CI（`.github/workflows/terraform.yml`）で `fmt -check` / `init -backend=false` / `validate` を実行。
 `apply` はAWS認証情報が必要なため手動運用（本リポジトリからの自動applyは行わない）。
 
-## アプリDBユーザーのプロビジョニング
+## アプリDBユーザーのプロビジョニング（最小権限）
 
-RDSのマスターユーザー（`db_username`、既定 `cf_app`）はSecrets Managerで自動管理される。
-最小権限の**アプリ専用DBユーザー**をマスターとは別に用意する場合、Terraformの `postgresql` provider は
-DBへのネットワーク到達性が必要で `validate`/CIでは扱えないため、**Flyway移行またはブートストラップSQL**で
-作成する運用とする（例: 初回のみ `CREATE ROLE cf_app_rw LOGIN ...` + スキーマ権限付与、資格情報は
-Secrets Managerへ）。本リポジトリのIaCはネットワーク非依存な範囲に限定する。
+RDSのマスターユーザー（`db_username`、既定 `cf_app`）はSecrets Managerで自動管理され、**DDL/移行の実行者**
+（オーナー）となる。アプリの**実行時接続**は、DDL権限を持たない最小権限ユーザーに分離する（基本設計 §11.4）。
+Terraformの `postgresql` provider はDB到達性が必要で `validate`/CIで扱えないため、DB内の作業は以下で行う:
+
+1. **グループロール + 権限**（Flyway移行、versioned・自動適用・冪等）:
+   `backend/src/main/resources/db/migration/V202607230001__create_app_runtime_role.sql`
+   — `cf_app_rw`（NOLOGIN）を作成し、`public` スキーマの既存/将来テーブルへ **DMLのみ**付与
+   （`ALTER DEFAULT PRIVILEGES` で将来の移行にも追従）。DDLは付与しない。
+2. **ログインユーザー**（ブートストラップSQL、資格情報はGit管理外）:
+   `infra/db/create-app-user.sql`
+   ```bash
+   PGPASSWORD=<owner_pw> psql -h <host> -U cf_app -d <db> \
+     -v app_user=cf_app_login -v app_password="$(openssl rand -base64 24)" \
+     -f infra/db/create-app-user.sql
+   ```
+   生成パスワードは Secrets Manager に保存する。
+
+### アプリ側の接続分離（本番）
+
+実行時接続を最小権限ユーザーに、移行はオーナーで実行するよう分離する:
+
+- `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` = `cf_app_login`（最小権限、実行時）
+- `SPRING_FLYWAY_USER` / `SPRING_FLYWAY_PASSWORD` = `cf_app`（オーナー、移行時）
+
+> local/test プロファイルは簡便のため単一ユーザー（`cf_app`）のままとし、分離は dev 以上で適用する。
+> 上記モデルはローカルDB（docker compose）で検証済み: `cf_app_login` は SELECT/INSERT/UPDATE/DELETE 可、
+> `CREATE TABLE` 等のDDLは `permission denied`、オーナー作成の新テーブルも自動でSELECT可。
 
 ## 未対応（今後）
 

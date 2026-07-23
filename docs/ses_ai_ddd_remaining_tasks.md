@@ -30,7 +30,7 @@
 
 | 優先 | 区分 | タスク | 節 |
 |---|---|---|---|
-| 高 | IaC | 実AWSでの `apply`・疎通・DBユーザー作成（未カバーリソースのコード化は完了・validate済） | 2.1 |
+| 高 | IaC | 実AWSでの `apply`・疎通確認（未カバーリソースのコード化・DBユーザー移行は完了、validate/ローカル検証済） | 2.1 |
 | 高 | 監視 | アラート閾値のCloudWatch/Alertmanager実配線（メトリクス公開は完了） | 2.1 |
 | 中 | 運用 | SESテンプレートのAWS実登録 | 3.1 |
 | 低 | CI | CodeQL Kotlin対応後の java-kotlin 追加検討 | 4.1 |
@@ -51,8 +51,11 @@
       `terraform fmt -check` / `init` / `validate` 済み（provider aws v5.100）。ドメイン/SESはvarでゲート。
 - [ ] **実AWSでの apply と疎通確認** — AWS認証情報が必要なため未実施。`apply` → ACM/SES のDNS検証完了 →
       `terraform output` を GitHub Variables へ設定すると CD（`cd.yml`）が機能する。
-- [ ] **アプリDBユーザーのプロビジョニング** — 最小権限のアプリ専用DBユーザーは、DB到達性が必要で
-      `validate`/CIで扱えないため Flyway/ブートストラップSQLで作成する運用（`infra/terraform/README.md` に記載）。
+- [x] **アプリDBユーザーのプロビジョニング（最小権限）** — Flyway移行
+      `V202607230001__create_app_runtime_role.sql`（`cf_app_rw`: DMLのみ + 将来テーブル自動付与、冪等）と
+      ブートストラップSQL `infra/db/create-app-user.sql`（ログインユーザー、資格情報はGit外）を追加。
+      ローカルDBで検証済み（SELECT/DML可・DDL拒否・将来テーブル自動SELECT可）、Testcontainersビルドも通過。
+  - [ ] 本番の接続分離（実行時=`cf_app_login` / 移行=`SPRING_FLYWAY_USER`=オーナー）は apply 時に適用（`infra/terraform/README.md`）。
 - [ ] **アラート閾値の実配線** — メトリクス公開とアラート閾値定義は完了（§5.3 / `docs/ops/monitoring.md`）。
       CloudWatch Agent/OTel Collector で `/actuator/prometheus` を収集し、CloudWatch Alarm（or Alertmanager）へ
       閾値を実設定する。ダッシュボード（CloudWatch/Grafana）も本項で作成。監視基盤のIaC化と併せて実施。
@@ -140,6 +143,9 @@
   SQS+DLQ / SESドメイン・DKIM / Cognito User Pool・Client / WAF / VPCエンドポイント。IAM・ECS環境変数へ配線。
   `terraform.yml` で fmt / init / validate（provider aws v5.100）。ドメイン/SESはvarでゲート。
   `apply` はAWS認証が必要なため手動運用（残 §2.1、`infra/terraform/README.md`）。
+- **最小権限DBユーザー** — Flyway移行 `V202607230001__create_app_runtime_role.sql`（`cf_app_rw`: DMLのみ・
+  将来テーブル自動付与）+ ブートストラップSQL `infra/db/create-app-user.sql`（ログインユーザー）。
+  実行時接続を最小権限ユーザー、移行をオーナーに分離する方針（本番はdev以上で適用）。ローカルDBで検証済み。
 - **CD** — `cd.yml`（手動 `workflow_dispatch`、環境承認付き）。image build → ECR push → ECS ローリング更新
   （OIDC）。実AWS未提供のため apply/deploy 検証は未実施（残: §2.1 のリソース整備後）。
 - **監視メトリクス** — Micrometer + `/actuator/prometheus`（`micrometer-registry-prometheus`）。
