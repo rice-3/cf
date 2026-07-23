@@ -34,8 +34,11 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "SPRING_PROFILES_ACTIVE", value = var.environment },
         { name = "DB_URL", value = "jdbc:postgresql://${aws_db_instance.main.address}:5432/${var.db_name}" },
         { name = "DB_USERNAME", value = var.db_username },
-        { name = "COGNITO_ISSUER", value = var.cognito_issuer },
-        { name = "CF_FILE_BUCKET", value = "${local.name_prefix}-files" },
+        { name = "COGNITO_ISSUER", value = local.cognito_issuer },
+        { name = "CF_FILE_BUCKET", value = aws_s3_bucket.files.bucket },
+        { name = "CF_OUTBOX_SQS_QUEUE_URL", value = aws_sqs_queue.outbox.url },
+        { name = "CF_SES_CONFIGURATION_SET", value = aws_sesv2_configuration_set.main.configuration_set_name },
+        { name = "AWS_REGION", value = var.aws_region },
       ]
       secrets = [
         # RDS管理のマスターシークレット(JSON)の password キーを注入

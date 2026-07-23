@@ -41,3 +41,53 @@ output "alb_dns_name" {
   description = "アプリのエンドポイント（ALB）"
   value       = aws_lb.main.dns_name
 }
+
+# ---- 追加リソース（§2.1） ----------------------------------------------------
+
+output "s3_file_bucket" {
+  description = "ファイルバケット名（アプリ CF_FILE_BUCKET）"
+  value       = aws_s3_bucket.files.bucket
+}
+
+output "outbox_queue_url" {
+  description = "Outbox SQS キューURL（CF_OUTBOX_SQS_QUEUE_URL）"
+  value       = aws_sqs_queue.outbox.url
+}
+
+output "cognito_user_pool_id" {
+  value = aws_cognito_user_pool.main.id
+}
+
+output "cognito_web_client_id" {
+  value = aws_cognito_user_pool_client.web.id
+}
+
+output "cognito_issuer" {
+  description = "Resource Server の COGNITO_ISSUER"
+  value       = local.cognito_issuer
+}
+
+output "cognito_domain" {
+  description = "Cognito Hosted UI ドメイン"
+  value       = "${aws_cognito_user_pool_domain.main.domain}.auth.${var.aws_region}.amazoncognito.com"
+}
+
+output "waf_web_acl_arn" {
+  description = "WAF WebACL ARN（enable_waf時）"
+  value       = var.enable_waf ? aws_wafv2_web_acl.main[0].arn : null
+}
+
+output "acm_certificate_arn" {
+  description = "ACM証明書ARN（domain_name指定時）"
+  value       = local.enable_https ? aws_acm_certificate.main[0].arn : null
+}
+
+output "acm_dns_validation_records" {
+  description = "ACM DNS検証レコード（route53_zone_id未指定時に手動登録する）"
+  value       = local.enable_https ? aws_acm_certificate.main[0].domain_validation_options : []
+}
+
+output "ses_dkim_tokens" {
+  description = "SES DKIM トークン（DNSへCNAME登録）。ses_domain指定時のみ。"
+  value       = var.ses_domain != "" ? aws_sesv2_email_identity.domain[0].dkim_signing_attributes[0].tokens : []
+}

@@ -53,7 +53,28 @@ data "aws_iam_policy_document" "ecs_task" {
     actions   = ["ses:SendEmail", "ses:SendRawEmail"]
     resources = ["*"]
   }
-  # S3 / SQS は具体的リソース確定後に絞り込む（現状はプレースホルダとして最小限）
+  # ファイルバケットへの presigned URL 発行/読み書き（§10.2）
+  statement {
+    sid       = "S3Objects"
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    resources = ["${aws_s3_bucket.files.arn}/*"]
+  }
+  statement {
+    sid       = "S3Bucket"
+    actions   = ["s3:ListBucket", "s3:GetBucketLocation"]
+    resources = [aws_s3_bucket.files.arn]
+  }
+  # Outbox配送のSQS化（要判断B）に備えた送受信権限
+  statement {
+    sid = "Sqs"
+    actions = [
+      "sqs:SendMessage",
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueAttributes",
+    ]
+    resources = [aws_sqs_queue.outbox.arn, aws_sqs_queue.outbox_dlq.arn]
+  }
 }
 
 resource "aws_iam_role_policy" "ecs_task" {

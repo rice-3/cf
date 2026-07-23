@@ -54,6 +54,30 @@ resource "aws_security_group" "ecs" {
   tags = { Name = "${local.name_prefix}-ecs-sg" }
 }
 
+# VPCインターフェースエンドポイント: privateサブネットからのHTTPS(443)のみ受ける
+resource "aws_security_group" "vpce" {
+  name        = "${local.name_prefix}-vpce-sg"
+  description = "Interface VPC endpoints from private subnets"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description = "HTTPS from VPC"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = { Name = "${local.name_prefix}-vpce-sg" }
+}
+
 # RDS: ECSサービスからのみ 5432 を受ける
 resource "aws_security_group" "rds" {
   name        = "${local.name_prefix}-rds-sg"

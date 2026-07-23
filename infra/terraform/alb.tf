@@ -27,11 +27,41 @@ resource "aws_lb_target_group" "backend" {
   tags = { Name = "${local.name_prefix}-tg" }
 }
 
-# HTTP:80。実運用ではACM証明書でHTTPS(443)を追加し、80→443へリダイレクトする（§10.3）。
+# HTTP:80。HTTPS有効時（domain_name指定時）は 80→443 リダイレクト、無効時は直接forward。
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = 80
   protocol          = "HTTP"
+
+  dynamic "default_action" {
+    for_each = local.enable_https ? [1] : []
+    content {
+      type = "redirect"
+      redirect {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+  }
+
+  dynamic "default_action" {
+    for_each = local.enable_https ? [] : [1]
+    content {
+      type             = "forward"
+      target_group_arn = aws_lb_target_group.backend.arn
+    }
+  }
+}
+
+# HTTPS:443（domain_name指定時のみ）。ACM証明書でTLS終端しforwardする。
+resource "aws_lb_listener" "https" {
+  count             = local.enable_https ? 1 : 0
+  load_balancer_arn = aws_lb.main.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = aws_acm_certificate.main[0].arn
 
   default_action {
     type             = "forward"

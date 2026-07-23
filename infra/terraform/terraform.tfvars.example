@@ -10,3 +10,18 @@ github_repository = "rice-3/cf"
 # desired_count     = 2
 # db_instance_class = "db.t4g.micro"
 # cognito_issuer    = "https://cognito-idp.ap-northeast-1.amazonaws.com/xxxxx"
+
+# HTTPS / ドメイン（設定するとACM + HTTPS(443)を有効化）
+# domain_name       = "cf.example.com"
+# route53_zone_id   = "Z0123456789ABCDEFGHIJ"   # あればACM検証を自動化
+
+# SES送信ドメイン（設定するとドメインID・DKIMを作成）
+# ses_domain        = "example.com"
+
+# WAF
+# enable_waf        = true
+# waf_rate_limit    = 2000
+
+# Cognito App Client のURL（本番ドメインに合わせる）
+# cognito_callback_urls = ["https://cf.example.com/api/auth/callback/cognito"]
+# cognito_logout_urls   = ["https://cf.example.com"]

@@ -30,7 +30,7 @@
 
 | 優先 | 区分 | タスク | 節 |
 |---|---|---|---|
-| 高 | IaC | 未カバーAWSリソース（ACM/S3/SQS/SES/Cognito/WAF/VPCe/DBユーザー） | 2.1 |
+| 高 | IaC | 実AWSでの `apply`・疎通・DBユーザー作成（未カバーリソースのコード化は完了・validate済） | 2.1 |
 | 高 | 監視 | アラート閾値のCloudWatch/Alertmanager実配線（メトリクス公開は完了） | 2.1 |
 | 中 | 運用 | SESテンプレートのAWS実登録 | 3.1 |
 | 低 | CI | CodeQL Kotlin対応後の java-kotlin 追加検討 | 4.1 |
@@ -45,10 +45,14 @@
 
 ### 2.1 IaC — 未カバーのAWSリソースと監視の実配線（Terraform、ADR-007）
 
-- [ ] **未カバーのAWSリソース** — HTTPS(ACM) / S3ファイルバケット / SQS / SES ドメイン検証 /
-      Cognito User Pool / WAF / VPCエンドポイント。アプリDBユーザーのプロビジョニング。
-  - コア構成（VPC/ECR/ECS/ALB/RDS/IAM(OIDC)/Secrets/Logs）は §5.3 で提供済み。本項はその上乗せ。
-  - 完了すると CD（`cd.yml`）が実AWSに対して機能する（残るは `apply` → `output` を GitHub Variables へ設定）。
+- [x] **未カバーのAWSリソースの Terraform コード化** — ACM+HTTPS(`acm.tf`/`alb.tf`) / S3ファイルバケット(`s3.tf`) /
+      SQS+DLQ(`sqs.tf`) / SES ドメイン検証・DKIM(`ses.tf`) / Cognito User Pool・Client(`cognito.tf`) /
+      WAF(`waf.tf`) / VPCエンドポイント(`vpc_endpoints.tf`) を追加し、IAM/ECS環境変数へ配線。
+      `terraform fmt -check` / `init` / `validate` 済み（provider aws v5.100）。ドメイン/SESはvarでゲート。
+- [ ] **実AWSでの apply と疎通確認** — AWS認証情報が必要なため未実施。`apply` → ACM/SES のDNS検証完了 →
+      `terraform output` を GitHub Variables へ設定すると CD（`cd.yml`）が機能する。
+- [ ] **アプリDBユーザーのプロビジョニング** — 最小権限のアプリ専用DBユーザーは、DB到達性が必要で
+      `validate`/CIで扱えないため Flyway/ブートストラップSQLで作成する運用（`infra/terraform/README.md` に記載）。
 - [ ] **アラート閾値の実配線** — メトリクス公開とアラート閾値定義は完了（§5.3 / `docs/ops/monitoring.md`）。
       CloudWatch Agent/OTel Collector で `/actuator/prometheus` を収集し、CloudWatch Alarm（or Alertmanager）へ
       閾値を実設定する。ダッシュボード（CloudWatch/Grafana）も本項で作成。監視基盤のIaC化と併せて実施。
@@ -130,9 +134,12 @@
   CIで再生成差分ゲート（`ci.yml`）。
 - **コード整形（Java）** — Spotless に Eclipse JDT フォーマッタ（`spotless-java.properties`）を追加。
   google/palantir は JDK 25 で javac 内部API非互換のため不採用。コメントは保全しコードのみ整形。
-- **IaC（コア）** — `infra/terraform/`（VPC / サブネット / NAT / SG / ECR / ALB / ECS Fargate /
+- **IaC** — `infra/terraform/`。コア（VPC / サブネット / NAT / SG / ECR / ALB / ECS Fargate /
   RDS PostgreSQL 18 / IAM(タスク実行・タスク) / GitHub OIDC + デプロイロール / Secrets Manager /
-  CloudWatch Logs）。`terraform.yml` で fmt / init / validate。`apply` は手動運用（`infra/terraform/README.md`）。
+  CloudWatch Logs）に加え、**未カバーリソースをコード化**: ACM+HTTPS / S3ファイルバケット /
+  SQS+DLQ / SESドメイン・DKIM / Cognito User Pool・Client / WAF / VPCエンドポイント。IAM・ECS環境変数へ配線。
+  `terraform.yml` で fmt / init / validate（provider aws v5.100）。ドメイン/SESはvarでゲート。
+  `apply` はAWS認証が必要なため手動運用（残 §2.1、`infra/terraform/README.md`）。
 - **CD** — `cd.yml`（手動 `workflow_dispatch`、環境承認付き）。image build → ECR push → ECS ローリング更新
   （OIDC）。実AWS未提供のため apply/deploy 検証は未実施（残: §2.1 のリソース整備後）。
 - **監視メトリクス** — Micrometer + `/actuator/prometheus`（`micrometer-registry-prometheus`）。

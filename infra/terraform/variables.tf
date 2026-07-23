@@ -92,3 +92,47 @@ variable "image_tag" {
   type        = string
   default     = "bootstrap"
 }
+
+# ---- 追加リソース（§2.1 未カバーAWSリソース）用 ------------------------------
+
+variable "domain_name" {
+  description = "アプリのFQDN（例: cf.example.com）。設定するとACM証明書とHTTPS(443)を有効化する。空ならHTTP(80)のみ。"
+  type        = string
+  default     = ""
+}
+
+variable "route53_zone_id" {
+  description = "ACMのDNS検証レコードを作成するRoute53ホストゾーンID。空なら検証レコードは手動作成（validation_optionsを出力）。"
+  type        = string
+  default     = ""
+}
+
+variable "ses_domain" {
+  description = "SES送信ドメイン（例: example.com）。設定するとSESドメインID・DKIMを作成する。空なら作成しない。"
+  type        = string
+  default     = ""
+}
+
+variable "enable_waf" {
+  description = "ALBへWAF(WebACL)を関連付けるか（AWSマネージドルール + レート制限）。"
+  type        = bool
+  default     = true
+}
+
+variable "waf_rate_limit" {
+  description = "WAFレートベースルールの5分あたり上限リクエスト数（1IP）。"
+  type        = number
+  default     = 2000
+}
+
+variable "cognito_callback_urls" {
+  description = "Cognito App Client のコールバックURL（OIDC）。"
+  type        = list(string)
+  default     = ["http://localhost:3000/api/auth/callback/cognito"]
+}
+
+variable "cognito_logout_urls" {
+  description = "Cognito App Client のログアウトURL。"
+  type        = list(string)
+  default     = ["http://localhost:3000"]
+}
