@@ -37,7 +37,7 @@
 | 低 | CI | contract-first DTO自動生成 / swagger-ui 導入 | 4.1 |
 | 低 | CI | Java整形（google/palantir-java-format、JDK25対応後） | 4.1 |
 | 低 | 文書 | 設計書 `.docx` の v1.2 再出力 | 4.1 |
-| — | 判断 | 要判断事項 A〜E（人間の決定待ち） | 5 の後 §6 |
+| — | 判断 | 要判断事項 A〜C・E（Dは ADR-0004/0005/0006 起票済み） | 5 の後 §6 |
 
 ---
 
@@ -169,11 +169,12 @@
 | A | 監査アーカイブ（BAT-009）の実出力先（S3バケット・ストレージクラス・保持年数） | 現状はハッシュ算出のみのローカル実装。`LocalAuditArchiveAdapter` に `TODO(question)`。§2.1 Terraformと併せて確定 |
 | B | Outbox配送のSQS切替（現状 `InProcessOutboxDispatcher` のアプリ内配送） | マルチインスタンス構成時に必要。ADR候補（§2.1と関連） |
 | C | 未登録Cognito Subjectの初回JIT自動登録（既定ロールSUPPORTER）の可否 | `CognitoJwtAuthenticationConverter` に `TODO(question)`。許容しない場合は管理者Invite方式へ変更。dev投入前に承認要 |
-| D | ADR-BFF配置 / 決済非同期UI / Rich Text形式 の3件が未起票 | 該当機能の本格化時に起票（現状は既定動作で実装済み） |
+| D | ~~ADR-BFF配置 / 決済非同期UI / Rich Text形式 の3件が未起票~~ → **起票済み** | ADR-0004（BFF配置）/ ADR-0005（決済非同期UI）/ ADR-0006（本文プレーンテキスト）。既定動作を追認する形で文書化 |
 | E | Cognito実User Poolでの結合確認 | 未実施（テストはlocal/testの開発用ヘッダー認証のみ）。dev環境構築時に実施 |
 
 > 解決済みの要判断: 起案者向け通知の宛先解決（ADR-0002）、冪等記録削除バッチ（BAT-010）、
-> バッチ多重起動防止（ADR-0003: ShedLock）。詳細は §5。
+> バッチ多重起動防止（ADR-0003: ShedLock）、BFF配置（ADR-0004）、決済非同期UI（ADR-0005）、
+> 本文プレーンテキスト（ADR-0006）。詳細は §5。
 
 ---
 
