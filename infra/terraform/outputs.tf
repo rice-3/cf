@@ -91,3 +91,13 @@ output "ses_dkim_tokens" {
   description = "SES DKIM トークン（DNSへCNAME登録）。ses_domain指定時のみ。"
   value       = var.ses_domain != "" ? aws_sesv2_email_identity.domain[0].dkim_signing_attributes[0].tokens : []
 }
+
+output "alerts_sns_topic_arn" {
+  description = "アラーム通知先SNSトピックARN"
+  value       = aws_sns_topic.alerts.arn
+}
+
+output "dashboard_name" {
+  description = "CloudWatchダッシュボード名"
+  value       = aws_cloudwatch_dashboard.main.dashboard_name
+}

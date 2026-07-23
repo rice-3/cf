@@ -136,3 +136,23 @@ variable "cognito_logout_urls" {
   type        = list(string)
   default     = ["http://localhost:3000"]
 }
+
+# ---- 監視・アラート（§2.1、閾値は docs/ops/monitoring.md） --------------------
+
+variable "alert_email" {
+  description = "アラート通知先メール（SNS購読）。空なら購読は作成しない（トピックのみ）。"
+  type        = string
+  default     = ""
+}
+
+variable "metrics_namespace" {
+  description = "ビジネス/バッチメトリクスのCloudWatch名前空間（Prometheus→CloudWatchパイプラインの発行先）。"
+  type        = string
+  default     = "CF/Training"
+}
+
+variable "api_p95_latency_threshold_seconds" {
+  description = "API p95 レイテンシ（ALB TargetResponseTime）のCriticalアラート閾値（秒）。"
+  type        = number
+  default     = 1
+}

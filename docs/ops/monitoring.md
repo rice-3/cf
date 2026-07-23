@@ -82,6 +82,8 @@
 
 - [x] メトリクス公開（Micrometer + `/actuator/prometheus`）、ビジネス/バッチ/API メトリクス。
 - [x] 本書のアラート閾値定義。
-- [ ] CloudWatch Alarm（or OTel/Prometheus Alertmanager）への閾値の実設定 — IaC（残タスク §2.2）で
-      監視基盤（Collector/Agent・アラート通知先）を構築後に反映する。
-- [ ] ダッシュボード（CloudWatch/Grafana）作成。
+- [x] CloudWatch Alarm / ダッシュボード / SNS通知の Terraform 化（`infra/terraform/monitoring.tf`、`validate` 済）。
+      本書の閾値を実装（インフラ系はALB/ECS/RDS、ビジネス系は `var.metrics_namespace` のカスタム指標）。
+- [ ] メトリクスパイプライン（CloudWatch Agent(Prometheus)/ADOT Collector）で `/actuator/prometheus` を
+      `var.metrics_namespace` へ発行する構成（ECSサイドカー等）。ビジネス/バッチアラームはこの発行後に有効化。
+- [ ] 実 `apply` とSNSメール購読の確認（AWS必須）。ダッシュボードの微調整。

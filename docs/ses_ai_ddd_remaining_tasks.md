@@ -31,7 +31,7 @@
 | 優先 | 区分 | タスク | 節 |
 |---|---|---|---|
 | 高 | IaC | 実AWSでの `apply`・疎通確認（未カバーリソースのコード化・DBユーザー移行は完了、validate/ローカル検証済） | 2.1 |
-| 高 | 監視 | アラート閾値のCloudWatch/Alertmanager実配線（メトリクス公開は完了） | 2.1 |
+| 高 | 監視 | メトリクスパイプライン構成＋実apply（Alarm/ダッシュボードのコード化は完了・validate済） | 2.1 |
 | 中 | 運用 | SESテンプレートのAWS実登録 | 3.1 |
 | 低 | CI | CodeQL Kotlin対応後の java-kotlin 追加検討 | 4.1 |
 | 低 | CI | contract-first DTO自動生成 / swagger-ui 導入 | 4.1 |
@@ -56,9 +56,13 @@
       ブートストラップSQL `infra/db/create-app-user.sql`（ログインユーザー、資格情報はGit外）を追加。
       ローカルDBで検証済み（SELECT/DML可・DDL拒否・将来テーブル自動SELECT可）、Testcontainersビルドも通過。
   - [ ] 本番の接続分離（実行時=`cf_app_login` / 移行=`SPRING_FLYWAY_USER`=オーナー）は apply 時に適用（`infra/terraform/README.md`）。
-- [ ] **アラート閾値の実配線** — メトリクス公開とアラート閾値定義は完了（§5.3 / `docs/ops/monitoring.md`）。
-      CloudWatch Agent/OTel Collector で `/actuator/prometheus` を収集し、CloudWatch Alarm（or Alertmanager）へ
-      閾値を実設定する。ダッシュボード（CloudWatch/Grafana）も本項で作成。監視基盤のIaC化と併せて実施。
+- [x] **CloudWatch Alarm / ダッシュボードの Terraform 化** — `monitoring.tf` に SNSトピック（`alert_email` 購読）、
+      インフラアラーム（ALB 5xx・p95レイテンシ / ECS CPU・メモリ / RDS CPU・空き容量・接続数）、
+      ビジネス/バッチアラーム（Outbox滞留・通知失敗・返金失敗/再試行待ち・バッチ最終成功経過、
+      閾値は `docs/ops/monitoring.md` 準拠）、CloudWatchダッシュボードを定義。`validate` 済み。
+  - [ ] **メトリクスパイプラインの構成（apply時）** — ビジネス/バッチメトリクス（`var.metrics_namespace`）は
+        `/actuator/prometheus` を CloudWatch Agent(Prometheus) / ADOT Collector で収集し CloudWatch へ発行する
+        構成が前提（ECSサイドカー等）。インフラアラームは apply 後すぐ有効。実 apply とメール購読確認は AWS 必須。
 
 ---
 
@@ -154,6 +158,10 @@
   通知送信レート（`cf_notification_delivery_total`）、API レイテンシ/5xx（`http.server.requests` ヒストグラム）。
   全メーターに `application` 共通タグ（`ObservabilityConfig`）。アラート閾値は `docs/ops/monitoring.md`。
   結合テスト `MetricsIntegrationTest` で公開を検証。
+- **監視アラート/ダッシュボード（IaC）** — `infra/terraform/monitoring.tf`。SNSトピック（メール購読）+
+  インフラアラーム（ALB 5xx・p95 / ECS CPU・メモリ / RDS CPU・空き容量・接続数）+ ビジネス/バッチアラーム
+  （Outbox/通知/返金/バッチ最終成功経過、閾値は monitoring.md 準拠）+ CloudWatchダッシュボード。`validate` 済。
+  ビジネス/バッチ系は Prometheus→CloudWatch パイプライン（`var.metrics_namespace`）の apply 時構成が前提。
 - **E2E（Playwright）** — `frontend/e2e/`（`playwright.config.ts`）。ブラウザで「起案→審査承認」ジャーニー、
   ロール別アクセス制御、公開画面、運用コンソール一覧・検索を検証。`e2e.yml` で PostgreSQL(サービス) +
   backend(local, `java -jar`) + frontend(`next start`) を起動して実行。ローカルは
