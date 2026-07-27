@@ -9,19 +9,22 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * 監査アーカイブのローカル実装（BAT-009）。
+ * 監査アーカイブのローカル実装（BAT-009）。local/test プロファイル限定。
  *
- * <p>教育環境では外部ストレージへ出力せず、ハッシュと件数の算出のみを行う。
- * dev以上の環境ではS3 Glacier相当へ出力するAdapterへ差し替える。</p>
+ * <p>外部ストレージへ出力せず、ハッシュと件数の算出のみを行う。
+ * dev以上では {@link S3AuditArchiveAdapter} が S3 Glacier Instant Retrieval へ出力する
+ * （ADR-0009）。双方のプロファイルを排他にしてBeanの重複を防いでいる。</p>
  *
- * <p>TODO(question): 実際のアーカイブ出力先（S3バケット・ストレージクラス・保持年数）が
- * 未確定のため、本実装は出力を伴わない。運用要件の確定後に差し替えること。</p>
+ * <p>本実装はS3へ出さないがハッシュを返すため、BAT-009 は「出力できた」と判断して
+ * DBから削除する。local/test は使い捨てデータなので許容する。</p>
  */
 @Component
+@Profile({"local", "test"})
 public class LocalAuditArchiveAdapter implements AuditArchivePort {
 
     private static final Logger log = LoggerFactory.getLogger(LocalAuditArchiveAdapter.class);

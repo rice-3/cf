@@ -63,6 +63,15 @@ logging:
     level: "%5p [%X{correlationId:-}]"
 
 cf:
+  audit:
+    archive:
+      # BAT-009 の出力先（ADR-0009）。dev以上は ecs.tf が注入する。
+      # local/test では LocalAuditArchiveAdapter が動くため未設定でよい。
+      bucket: ${CF_AUDIT_ARCHIVE_BUCKET:}
+      key-prefix: ${CF_FILE_KEY_PREFIX:local}
+      # 保持は1年（S3ライフサイクル）。最低保存期間90日の GLACIER_IR を使う。
+      # DEEP_ARCHIVE は安いが取り出しに数時間かかり監査調査に向かない。
+      storage-class: ${CF_AUDIT_ARCHIVE_STORAGE_CLASS:GLACIER_IR}
   identity:
     cognito:
       # Resource Server が受理する token_use。CognitoはIDトークンとアクセストークンを

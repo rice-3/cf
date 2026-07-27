@@ -62,6 +62,9 @@ resource "aws_ecs_task_definition" "backend" {
         # S3キーの先頭に付く環境識別子（詳細設計 §10.2: env/userId/fileId/...）。
         # 未注入だとアプリ既定の "local" のままになり、環境間でキー空間が分離されない。
         { name = "CF_FILE_KEY_PREFIX", value = var.environment },
+        # 監査アーカイブ（BAT-009、ADR-0009）。未注入だとアプリは出力先が無いと判断し、
+        # ハッシュ算出のみのローカル実装と同じ挙動（＝S3へ出ない）になるため必ず渡す。
+        { name = "CF_AUDIT_ARCHIVE_BUCKET", value = aws_s3_bucket.audit_archive.bucket },
         { name = "CF_SES_CONFIGURATION_SET", value = aws_sesv2_configuration_set.main.configuration_set_name },
         # 送信元。ses_domain / ses_from_address 未設定時はアプリ既定と同じ無効ドメインが入る（送信は失敗する）
         { name = "CF_SES_FROM_ADDRESS", value = local.ses_from_address },

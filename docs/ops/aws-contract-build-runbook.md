@@ -83,6 +83,7 @@ flowchart LR
 | コンテナ | ECR（scan on push / 直近10世代）/ ECS クラスタ（Container Insights 有効・Exec ログ記録）/ タスク定義 / サービス（ECS Exec 有効） | `ecr.tf`, `ecs.tf` |
 | DB | RDS PostgreSQL 18 / gp3 20GB（最大100GB）/ マスターパスワードは Secrets Manager 自動管理 | `rds.tf` |
 | ストレージ | S3 files バケット（公開ブロック / バージョニング / SSE-S3 / ライフサイクル / CORS） | `s3.tf` |
+| 監査保管 | S3 audit-archive バケット（書き込み専用 / GLACIER_IR / 保持365日 / Object Lock capability） | `s3_audit_archive.tf` |
 | 非同期 | Outbox配送はアプリ内（`InProcessOutboxDispatcher`）。SQSは使わない（ADR-0008） | — |
 | 認証 | Cognito User Pool / App Client（secret あり）/ Hosted UI ドメイン | `cognito.tf` |
 | メール | SES ドメイン ID・DKIM（`ses_domain` 指定時）/ 構成セット | `ses.tf` |
@@ -125,7 +126,7 @@ flowchart LR
 | WAF | WebACL $5 + ルール3 $3 + リクエスト | 約 9 | 約 1,400 |
 | CloudWatch Logs / Alarm / Dashboard | 90日保持・アラーム20個前後 | 約 5〜15 | 約 800〜2,300 |
 | Secrets Manager | 2シークレット × $0.40 | 約 1 | 約 150 |
-| S3 / ECR / Cognito / SES | 教育用の小規模利用（Cognito は 50,000 MAU まで無料枠） | 約 3 | 約 500 |
+| S3 / ECR / Cognito / SES | 教育用の小規模利用（Cognito は 50,000 MAU まで無料枠。監査アーカイブは GLACIER_IR で微額） | 約 3 | 約 500 |
 | **合計** | | **約 260〜300** | **約 40,000〜46,000** |
 
 **支配的なのは VPC Interface Endpoint（10 ENI）と NAT Gateway で、両方合わせて全体の約 6 割**である。
@@ -847,11 +848,17 @@ state バケットと DynamoDB テーブルだけが Terraform 管理外で残�
 | Cognito ドメインが再作成できない | 削除の伝播に時間がかかる | 数分待つ、または `project` を変える |
 | RDS 削除で止まる | `production` は `deletion_protection = true` / `skip_final_snapshot = false` | dev/staging では既定で false。production は意図的な手順（スナップショット取得 → 保護解除）を踏む |
 | ENI が残って VPC が消せない | ECS タスク・VPC エンドポイントの削除待ち | サービスを 0 タスクにしてから再実行 |
+| **監査アーカイブバケットが削除できない** | `audit_archive_lock_days > 0` で Object Lock の既定保持が入っている。**`COMPLIANCE` はルートユーザーでも解除できず、保持期間が経過するまで削除できない** | `GOVERNANCE` なら `s3:BypassGovernanceRetention` 権限で `--bypass-governance-retention` を付けてバージョン削除する。`COMPLIANCE` の場合は**待つしかない**。都度 apply/destroy する環境では `audit_archive_lock_days = 0`（既定）のままにする（ADR-0009） |
+
+> 監査アーカイブバケットは既定では Object Lock の保持ルールを持たない（capability のみ有効）ため、
+> 通常は他の S3 バケットと同じ手順（全バージョン削除）で消える。
 
 ### 19.2 破棄前に退避するもの
 
 - 学習・検証の成果（Git へ push）
 - 必要な DB データ（`pg_dump` または RDS スナップショット。スナップショットは保持課金あり）
+- **監査アーカイブ（`<prefix>-audit-archive`）の中身** — BAT-009 が出力した監査ログの唯一の
+  コピーである（DB からは削除済み）。destroy 前に必要なら `aws s3 sync` で退避する
 - 調査に使った CloudWatch Logs の抜粋
 - `terraform output` の値一式（次回の GitHub Variables 再設定が楽になる）
 

@@ -16,6 +16,9 @@ locals {
 
   s3_file_bucket = "${local.name_prefix}-files"
 
+  # 監査アーカイブ（BAT-009）。ファイル用バケットとは分離する（ADR-0009）。
+  s3_audit_archive_bucket = "${local.name_prefix}-audit-archive"
+
   # 通知メールの送信元（CF_SES_FROM_ADDRESS）。明示指定 > ses_domain から導出 > アプリ既定と同じ無効ドメイン。
   ses_from_address = var.ses_from_address != "" ? var.ses_from_address : (var.ses_domain != "" ? "no-reply@${var.ses_domain}" : "no-reply@example.invalid")
 

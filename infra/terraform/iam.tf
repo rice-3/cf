@@ -67,6 +67,15 @@ data "aws_iam_policy_document" "ecs_task" {
     actions   = ["s3:ListBucket", "s3:GetBucketLocation"]
     resources = [aws_s3_bucket.files.arn]
   }
+  # 監査アーカイブ（BAT-009）は**書き込みのみ**許可する（ADR-0009）。
+  # Get も Delete も与えないことで、アプリ経由での改ざん・削除を封じる
+  # （基本設計 §7.7「改ざん防止、参照権限限定」）。参照は運用者が別権限で行う。
+  statement {
+    sid       = "AuditArchivePutOnly"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.audit_archive.arn}/*"]
+  }
+
   # SQSの権限は持たせない。Outbox配送はアプリ内（ADR-0008）で、アプリはSQSを呼ばない。
   # 将来Workerを別サービスへ切り出す場合は、ADR-0008を差し替えたうえで復活させる。
 

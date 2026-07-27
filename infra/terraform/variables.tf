@@ -51,6 +51,34 @@ variable "enable_ecs_exec" {
   default     = null
 }
 
+variable "audit_archive_retention_days" {
+  description = "監査アーカイブ（BAT-009）のS3側保持日数。DBの保持期限を超えた行がアーカイブされるため、これはDB保持期間への上乗せ分（基本設計 §7.7: 監査ログ3年 / AI利用記録1年）。既定365日で、監査ログは実質4年・AI利用記録は実質2年になる。"
+  type        = number
+  default     = 365
+}
+
+variable "audit_archive_lock_days" {
+  description = "監査アーカイブへ S3 Object Lock の既定保持を設定する日数。0 で無効（既定）。**COMPLIANCE で有効にすると期間中はバケットを空にできず `terraform destroy` が失敗する**（ADR-0009）。都度 apply/destroy する環境では 0 のままにする。"
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.audit_archive_lock_days >= 0
+    error_message = "audit_archive_lock_days は 0 以上で指定してください。"
+  }
+}
+
+variable "audit_archive_lock_mode" {
+  description = "Object Lock のモード。GOVERNANCE は `s3:BypassGovernanceRetention` を持つ主体が解除できる。COMPLIANCE はルートでも解除できない。"
+  type        = string
+  default     = "GOVERNANCE"
+
+  validation {
+    condition     = contains(["GOVERNANCE", "COMPLIANCE"], var.audit_archive_lock_mode)
+    error_message = "audit_archive_lock_mode は GOVERNANCE または COMPLIANCE を指定してください。"
+  }
+}
+
 variable "health_check_grace_period_seconds" {
   description = "ECSサービスがALBヘルスチェックを無視する起動猶予（秒）。Spring Boot起動 + Flyway移行の所要時間を見込む。"
   type        = number

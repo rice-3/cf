@@ -15,12 +15,13 @@
 | `ecs.tf` | ECSクラスタ / Fargateタスク定義 / サービス |
 | `rds.tf` | PostgreSQL 18（マスターパスワードはSecrets Manager自動管理） |
 | `s3.tf` | ファイル用バケット（公開ブロック / バージョニング / SSE / ライフサイクル / CORS） |
+| `s3_audit_archive.tf` | 監査アーカイブ用バケット（BAT-009、書き込み専用・GLACIER_IR・保持365日、ADR-0009） |
 | `ses.tf` | SES送信ドメインID・DKIM（`ses_domain` 指定時）/ 構成セット |
 | `cognito.tf` | Cognito User Pool / App Client / ドメイン（認証） |
 | `waf.tf` | WAF WebACL（AWSマネージドルール + レート制限）+ ALB関連付け |
 | `vpc_endpoints.tf` | S3(Gateway) / ECR・Logs・SecretsManager・STS(Interface) |
 | `monitoring.tf` | CloudWatch アラーム（ALB/ECS/RDS + ビジネス/バッチ）+ ダッシュボード + SNS通知 |
-| `iam.tf` | ECSタスク実行ロール / タスクロール（S3/SES/Secrets） |
+| `iam.tf` | ECSタスク実行ロール / タスクロール（S3/SES/Secrets、監査アーカイブは PutObject のみ） |
 | `oidc.tf` | GitHub OIDCプロバイダ + CDデプロイロール |
 | `secrets.tf` | Secrets Manager（決済Webhookキー等） |
 | `logs.tf` | CloudWatch Logs |
@@ -34,6 +35,9 @@
 | `route53_zone_id` | `""` | ACMのDNS検証レコードを自動作成（未設定なら `acm_dns_validation_records` を手動登録） |
 | `ses_domain` | `""` | SES送信ドメインID・DKIMを作成（`ses_dkim_tokens` をDNSへ登録して検証） |
 | `ses_from_address` | `""` | 通知メール送信元（`CF_SES_FROM_ADDRESS`）。空なら `no-reply@<ses_domain>` を導出。両方空は無効ドメインのまま |
+| `audit_archive_retention_days` | `365` | 監査アーカイブのS3保持日数。**DB保持期間への上乗せ分**（監査ログは実質4年、AI利用記録は実質2年） |
+| `audit_archive_lock_days` | `0` | S3 Object Lock の既定保持日数。0で無効。**COMPLIANCE で有効にすると期間中 `terraform destroy` が失敗する**（ADR-0009） |
+| `audit_archive_lock_mode` | `GOVERNANCE` | Object Lock のモード。COMPLIANCE はルートでも解除できない |
 | `health_check_grace_period_seconds` | `180` | ECSサービスがALBヘルスチェックを無視する起動猶予（Spring Boot起動+Flyway移行の所要時間） |
 | `enable_ecs_exec` | 無指定 | ECS Exec（SSMセッション/ポートフォワード）。Private配置RDSへの保守経路。**無指定なら `environment` から決まる（production は `false`、それ以外は `true`）**。production で一時的に開けるときだけ明示的に `true` を渡し、作業後に戻す |
 | `enable_waf` | `true` | ALBへWAFを関連付け |
@@ -72,7 +76,7 @@ DataSource は **Spring Boot の Relaxed Binding に従う名前**で注入す�
 | `SPRING_DATASOURCE_PASSWORD` | Secrets Manager（RDS管理シークレットの `password` キー） |
 | `SPRING_FLYWAY_USER` | Terraform（`db_username` = オーナー。移行は常にオーナーが実行する） |
 | `SPRING_FLYWAY_PASSWORD` | Secrets Manager（RDS管理シークレットの `password` キー） |
-| `COGNITO_ISSUER` / `CF_FILE_BUCKET` / `CF_FILE_KEY_PREFIX` / `CF_SES_CONFIGURATION_SET` / `CF_SES_FROM_ADDRESS` / `AWS_REGION` | Terraform |
+| `COGNITO_ISSUER` / `CF_FILE_BUCKET` / `CF_FILE_KEY_PREFIX` / `CF_AUDIT_ARCHIVE_BUCKET` / `CF_SES_CONFIGURATION_SET` / `CF_SES_FROM_ADDRESS` / `AWS_REGION` | Terraform |
 | `CF_PAYMENT_WEBHOOK_SECRET` | Secrets Manager（値は apply 後に手動投入） |
 
 `CF_` 系の短い名前は Relaxed Binding では束縛されない。`application.yml` に
@@ -221,3 +225,22 @@ Flyway 側（`SPRING_FLYWAY_USER` / `SPRING_FLYWAY_PASSWORD`）と Secret の器
 - SESメールテンプレートの実登録（`NotificationTemplateCatalog` を正、残 §3.1）
 - メトリクスパイプライン（CloudWatch Agent(Prometheus)/ADOT）でビジネス/バッチ指標を発行する構成
 - 実AWSでの `apply` 検証（現状は `fmt`/`validate` のみ）
+
+## 監査アーカイブ（BAT-009・ADR-0009）
+
+`s3_audit_archive.tf` の専用バケットへ、DB保持期限を超えた `audit_log` / `ai_activity_log` を
+出力する。ファイル用バケットとは分離している（あちらはブラウザ presigned PUT のためCORSを開けている）。
+
+| 項目 | 値 |
+|---|---|
+| ストレージクラス | `GLACIER_IR`（PUT時に直接指定。**ライフサイクル遷移は128KB未満を移さない**ため） |
+| 保持 | `audit_archive_retention_days`（既定365日）。DB保持期間への上乗せ分 |
+| アプリの権限 | `s3:PutObject` のみ。Get も Delete も持たない（§7.7「改ざん防止、参照権限限定」） |
+| 完全性検証 | PUT に SHA-256 チェックサムを添えてS3側に検証させる（読み直せないため） |
+
+- **`CF_AUDIT_ARCHIVE_BUCKET` が未設定のまま dev 以上で動かすと `DependencyException` で失敗する。**
+  ハッシュを返さないことで BAT-009 のDB削除を止める設計（黙ってデータが消えるのを防ぐ）。
+- Object Lock は capability だけ有効化してあり（作成時にしか有効化できないため）、既定の保持ルールは
+  置いていない。production で強制するときは `audit_archive_lock_days` を指定する。
+  **`COMPLIANCE` はルートでも解除できず、期間中バケットを空にできないので `terraform destroy` が失敗する。**
+- アーカイブの**参照**はアプリではなく運用者が別権限（Identity Center のロール）で行う。
