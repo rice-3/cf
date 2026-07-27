@@ -173,8 +173,9 @@
     `ROLE_UPDATE_FORBIDDEN`（詳細設計UC-AD-001「自己権限剥奪検証」）
   - 会員停止: 自己停止は403 `USER_SUSPEND_FORBIDDEN`、停止済みへの再停止は409 `USER_INVALID_STATE`
 - `CognitoJwtAuthenticationConverter`: Cognito Subject → 内部UserId変換、ロールはDB
-  （user_role）を正として解決。未登録Subjectは初回アクセス時にJIT自動登録（既定ロールSUPPORTER）
-  — `TODO(question)` 記載済み、dev投入前に承認要
+  （user_role）を正として解決。トークン受入条件（`token_use` / `client_id`）も検証する。
+  未登録Subjectの初回JIT自動登録（既定ロールSUPPORTER）は **ADR-0007 で承認済み**。
+  登録処理は `JitProvisioningService`（application層）が持ち、`USER_JIT_PROVISION` を監査記録する
 - `ResourceServerSecurityConfig` へ組込み、`spring.security.oauth2.resourceserver.jwt.issuer-uri`
   を `COGNITO_ISSUER` 環境変数から注入（未設定時はdev以上で起動失敗＝意図的なフェイルファスト）
 

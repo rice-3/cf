@@ -55,6 +55,9 @@ resource "aws_ecs_task_definition" "backend" {
         # DDLはオーナーが持つため、ここは常に db_username（= RDSマスター）を指す。
         { name = "SPRING_FLYWAY_USER", value = var.db_username },
         { name = "COGNITO_ISSUER", value = local.cognito_issuer },
+        # 受理するアプリクライアント（ADR-0007）。同一User Poolに別クライアントを足しても、
+        # ここに無いクライアントが発行したトークンは 401 になる。
+        { name = "CF_IDENTITY_COGNITO_ALLOWED_CLIENT_IDS", value = aws_cognito_user_pool_client.web.id },
         { name = "CF_FILE_BUCKET", value = aws_s3_bucket.files.bucket },
         # S3キーの先頭に付く環境識別子（詳細設計 §10.2: env/userId/fileId/...）。
         # 未注入だとアプリ既定の "local" のままになり、環境間でキー空間が分離されない。

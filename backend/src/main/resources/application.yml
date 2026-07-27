@@ -63,6 +63,14 @@ logging:
     level: "%5p [%X{correlationId:-}]"
 
 cf:
+  identity:
+    cognito:
+      # Resource Server が受理する token_use。CognitoはIDトークンとアクセストークンを
+      # 同じissuer・同じJWKSで発行するため、署名検証だけでは区別できない（ADR-0007）。
+      expected-token-use: access
+      # 受理するアプリクライアント（カンマ区切り）。dev以上は ecs.tf が Cognito の
+      # WebクライアントIDを注入する。空なら検証しない（local/testの既定）。
+      allowed-client-ids: ${CF_IDENTITY_COGNITO_ALLOWED_CLIENT_IDS:}
   file:
     # dev以上はECS環境変数で上書きする（詳細設計 §13.1）
     bucket: ${CF_FILE_BUCKET:cf-local-files}

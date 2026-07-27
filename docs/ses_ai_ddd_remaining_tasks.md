@@ -2,7 +2,7 @@
 
 - 対象リポジトリ: `F:\11\CF`（GitHub: `https://github.com/rice-3/cf.git`）
 - 上位文書: 基本設計 BD-CF-001 v1.2 / 詳細設計 DD-CF-001 v1.2（`G:\マイドライブ\CF\`）
-- 更新日: 2026-07-27（§2.3 突き合わせで不整合2件を修正。§2.4 要判断H＝内部向けパスの外部遮断、§2.5 要判断G＝OIDC信頼条件の限定を実装）
+- 更新日: 2026-07-27（§2.3 突き合わせで不整合2件を修正。要判断H（§2.4 内部向けパスの遮断）・G（§2.5 OIDC信頼条件）・C（§2.6 JIT自動登録／ADR-0007）を決定・実装）
 - 実装済み範囲の詳細は `ses_ai_ddd_implementation_status.md` を参照。
 - 本書は**残タスク**を主役とする。完了済みは §5 に要約のみ記載。
 
@@ -33,6 +33,9 @@
   **要判断H として決定・実装済み**（ALB＋アプリの多層防御、Swagger UI は dev のみ。§2.4）。
 - **要判断G（OIDC信頼条件）も決定・実装済み**（`sub` を `environment:{dev,staging}` へ限定。§2.5）。
   ブランチ限定は GitHub の Environment 保護ルールで行うため、**apply 後に GitHub 側の設定が必須**。
+- **要判断C（Cognito JIT自動登録）も決定・実装済み**（許容。ADR-0007。§2.6）。あわせて
+  **IDトークンがBearerとして通っていた問題**を `token_use` 検証で塞ぎ、`client_id` 検証と
+  JIT登録の監査記録を追加した。
 - **進め方**: AWS契約・apply はローカルテスト完了後。それまでは早見表 A（AWS不要）のみを進める。
 
 ### 残タスク早見表
@@ -46,7 +49,7 @@ AWS要否で3分割する（A → B の順に進める）。
 | — | IaC/検証 | ~~タスク定義 ⇄ アプリ設定の突き合わせ~~ → **実施済み**（2件を修正、2件を要判断へ繰り上げ） | 2.3 |
 | — | セキュリティ | ~~要判断H: Swagger UI / OpenAPI spec / actuator の外部公開~~ → **決定・実装済み**（ALB＋アプリの多層防御、Swagger UI は dev のみ） | 2.4 |
 | — | セキュリティ | ~~要判断G: GitHub OIDC の信頼条件~~ → **決定・実装済み**（`sub` を `environment:{dev,staging}` へ限定。**GitHub側のEnvironment作成が apply 後に必須**） | 2.5 |
-| 中 | 認証 | 要判断C: 未登録Cognito SubjectのJIT自動登録の可否。分岐実装とテストはローカルで完結 | 6-C |
+| — | 認証 | ~~要判断C: 未登録Cognito SubjectのJIT自動登録の可否~~ → **決定・実装済み**（許容。`token_use` / `client_id` 検証とJIT監査記録を追加。ADR-0007） | 2.6 |
 | 中 | 設計/実装 | 要判断B: Outbox配送のSQS切替。ADR起票＋実装（ローカル検証はスタブ/LocalStack） | 6-B |
 | 中 | 実装 | メイン画像のブラウザ直PUT（現状 local/test はS3スタブで実PUTなし。dev以上で必要） | 5.4 |
 | 低 | 運用判断 | production の `enable_ecs_exec` 既定値（常時 `false` にして必要時のみ有効化するか） | 2.1 |
@@ -274,6 +277,60 @@ AWS 認証情報が無い現状では検証できず**、効かなければ初�
 
 ---
 
+### 2.6 Cognito JIT自動登録の承認とトークン受入条件（要判断C・**実装済み 2026-07-27**）
+
+`CognitoJwtAuthenticationConverter` が未登録Cognito Subjectを初回アクセス時に自動登録
+（JIT provisioning）していた件。**許容する**と決定し、**ADR-0007** として起票した。
+コード内の `TODO(question)` は削除済み。
+
+#### 判断の根拠になった事実
+
+設計書には **`app_user` 行の生成手段の規定が無い**。
+
+| 観点 | 設計書 |
+|---|---|
+| 画面 | `SCR-001 ログイン` のみ。**新規会員登録画面が無い** |
+| API | `API-US-001/002`・`API-AD-001/002/003` のみ。**ユーザー作成APIも招待APIも無い** |
+| §9.1 | 「Cognito Subjectと内部UserIdを分離」「ロールはDBを正とする」のみ |
+
+JITを否定すると、設計書に無いユーザー作成API・招待UI・Cognito AdminCreateUser連携
+（task roleへ `cognito-idp` 権限追加）を新規に作ることになる。支援者が自分で参加できることは
+クラウドファンディングの前提でもあるため、JITを承認した。
+
+#### 追加したガード
+
+JITは「トークンさえ通れば利用者が増える」経路なので、トークンの受入条件を狭めた。
+
+| # | ガード | 理由 |
+|---|---|---|
+| 1 | `token_use == "access"` を検証 | **CognitoはIDトークンとアクセストークンを同じissuer・同じJWKSで発行する**ため、署名とissuerの検証だけでは区別できず、**IDトークンをBearerに載せても通っていた** |
+| 2 | `client_id` を許可リストで検証 | 同一User Poolに別クライアントを足しても、`ecs.tf` が注入した Webクライアント のトークンだけを受理する。未設定（local/test）では検証しない |
+| 3 | JIT付与ロールは SUPPORTER 固定 | 昇格は API-AD-002（ADMIN専用・監査対象）を必ず通す |
+| 4 | JIT登録を監査ログへ記録（`USER_JIT_PROVISION`） | 誰がいつ自動登録されたかを追える |
+
+#### プロフィールはプレースホルダになる
+
+**Cognitoのアクセストークンには `email` / `name` クレームが無い**（IDトークン専用）。
+ガード1でアクセストークンのみ受理するため、JIT時に氏名・メールは取得できない。
+
+変更前の実装はトークンから読もうとして取れなければ暗黙にフォールバックしていたが、
+**アクセストークンでは必ずフォールバックする**ため、プレースホルダであることを明示する形に
+変えた（`<sub>@cognito.invalid` / `(未設定)`）。本人が API-US-002 で更新する前提。
+
+> 支援フローが実名・連絡先を要求する場合、プロフィール未設定を検出して入力を促す
+> 画面側の制御が別途必要になる。ADR-0007 に影響として記載した（本対応の範囲外）。
+
+#### 構造の整理
+
+登録処理を `JitProvisioningService`（application層）へ移し、変換器はトークン検証と変換に
+徹する形にした。監査記録も application 層で行う（`AdminUserService` / `ProfileService` と同じ）。
+同一Subjectの同時初回アクセスは `uq_app_user_cognito_subject` で片方が失敗するため、
+`DuplicateKeyException` を捕捉して既存行を読み直す。
+
+単体テスト `CognitoJwtAuthenticationConverterTest`（8ケース）を追加した。
+
+---
+
 ## 3. 残タスク（優先度: 中）
 
 ### 3.1 SESテンプレートのAWS登録
@@ -411,7 +468,7 @@ AWS 認証情報が無い現状では検証できず**、効かなければ初�
 |---|---|---|
 | A | 監査アーカイブ（BAT-009）の実出力先（S3バケット・ストレージクラス・保持年数） | 現状はハッシュ算出のみのローカル実装。`LocalAuditArchiveAdapter` に `TODO(question)`。§2.1 Terraformと併せて確定 |
 | B | Outbox配送のSQS切替（現状 `InProcessOutboxDispatcher` のアプリ内配送） | マルチインスタンス構成時に必要。ADR候補（§2.1と関連） |
-| C | 未登録Cognito Subjectの初回JIT自動登録（既定ロールSUPPORTER）の可否 | `CognitoJwtAuthenticationConverter` に `TODO(question)`。許容しない場合は管理者Invite方式へ変更。dev投入前に承認要 |
+| C | ~~未登録Cognito Subjectの初回JIT自動登録の可否~~ → **決定済み（2026-07-27）: 許容する。ただしトークン受入条件を狭める** | **ADR-0007** として起票。`TODO(question)` は削除済み。詳細は §2.6 |
 | D | ~~ADR-BFF配置 / 決済非同期UI / Rich Text形式 の3件が未起票~~ → **起票済み** | ADR-0004（BFF配置）/ ADR-0005（決済非同期UI）/ ADR-0006（本文プレーンテキスト）。既定動作を追認する形で文書化 |
 | E | Cognito実User Poolでの結合確認 | 未実施（テストはlocal/testの開発用ヘッダー認証のみ）。dev環境構築時に実施 |
 | F | dev環境の稼働モードとコスト構成 | 常時稼働は月4.3〜5.0万円。Interface VPCエンドポイント（12 ENI、約1.9万円/月）の要否、`desired_count`、Container Insights、WAFの取捨で1.5〜2.0万円まで低減可。「都度 apply/destroy」運用なら数千円。予算責任者の決定が必要（手順書 §3） |
@@ -446,3 +503,4 @@ AWS 認証情報が無い現状では検証できず**、効かなければ初�
 | ALBヘルスチェックとリスナールール | ターゲットグループのヘルスチェックは**リスナールールを経由しない**（LBノードからターゲットへ直接）。`/actuator/*` をリスナールールで404にしても `/actuator/health` の死活監視は生きる（§2.4） |
 | ハイフンを含む設定キーの環境変数名 | `springdoc.api-docs.enabled` のようにハイフンを含むキーは、環境変数形が `SPRINGDOC_APIDOCS_ENABLED` か `SPRINGDOC_API_DOCS_ENABLED` か紛らわしい。**推測せず実際に起動して応答で確かめる**（§2.4 に実測表） |
 | GitHub OIDC の `sub` は Environment で形が変わる | job が `environment:` を参照すると `sub` は `repo:<owner>/<repo>:environment:<名前>` になり、**`ref:refs/heads/main` の形にならない**。ref 形で絞ると CD が AssumeRole に失敗する。`sub` はブランチを縛らないので、ブランチ限定は GitHub の Environment 保護ルール側で行う（§2.5） |
+| CognitoのIDトークンとアクセストークンは見分けがつかない | 両者は**同じissuer・同じJWKS**で発行されるため、署名とissuerの検証だけでは区別できない。Resource Server では `token_use` を必ず検証する。またアクセストークンには `email` / `name` が無い（IDトークン専用）ので、プロフィールをトークンから取る設計にしない（§2.6） |
