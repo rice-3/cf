@@ -119,6 +119,21 @@ DataSource は **Spring Boot の Relaxed Binding に従う名前**で注入す�
 | `ecs_task_family` | `ECS_TASK_FAMILY` |
 | `container_name` | `CONTAINER_NAME` |
 
+### デプロイロールの信頼条件（要判断G）
+
+`oidc.tf` の `sub` 条件は `repo:<owner>/<repo>:environment:{dev,staging}` に限定してある。
+
+`cd.yml` の deploy job は `environment:` を指定しており、job が Environment を参照すると
+GitHub の `sub` クレームは `repo:<owner>/<repo>:environment:<名前>` になる。
+**`ref:refs/heads/main` の形にすると CD が必ず AssumeRole に失敗する。**
+
+この条件はブランチを縛らないので、**GitHub 側で Environment の保護ルールを必ず設定する**
+（`Settings > Environments` → Deployment branches を `main` に限定、Required reviewers を有効化）。
+手順は `docs/ops/aws-contract-build-runbook.md` §20.4.1。
+
+`workflow_dispatch` の Environment 選択肢を増やすときは、`cd.yml` と `oidc.tf` の両方に
+同じ名前を追加すること。
+
 ## 検証
 
 CI（`.github/workflows/terraform.yml`）で `fmt -check` / `init -backend=false` / `validate` を実行。

@@ -895,8 +895,34 @@ state バケットと DynamoDB テーブルだけが Terraform 管理外で残�
 - ワークフローに `permissions: id-token: write` があるか（`cd.yml` にはある）
 - `github_repository` が実リポジトリ（`rice-3/cf`）と完全一致しているか
 - Variables `AWS_ROLE_ARN` が正しいか
-- Trust Policy は `repo:<owner>/<repo>:*`（全ブランチ許可）。**ブランチや Environment で
-  絞りたい場合は `oidc.tf` の `sub` 条件を変更する**（本番運用では `ref:refs/heads/main` などへ限定を推奨）
+- Trust Policy の `sub` は `repo:<owner>/<repo>:environment:{dev,staging}` に限定してある（要判断G）。
+  **`workflow_dispatch` の Environment 選択肢を増やしたら `oidc.tf` にも同じ名前を追加する。**
+  片方だけ増やすと AssumeRole で `Not authorized to perform sts:AssumeRoleWithWebIdentity` になる
+
+> **`ref:refs/heads/main` へ変更してはいけない。** `cd.yml` の deploy job は `environment:` を
+> 指定しており、job が Environment を参照すると GitHub の `sub` クレームは
+> `repo:<owner>/<repo>:environment:<名前>` になる。ref 形にすると CD が必ず失敗する。
+> トークンの実際の `sub` は、失敗したジョブの `Configure AWS credentials` ステップの
+> エラーメッセージか、`actions/github-script` で `core.getIDToken()` をデコードして確認できる。
+
+#### 20.4.1 デプロイ元ブランチと承認者の限定（GitHub側・要判断G）
+
+IAM 側の条件は「どの Environment 経由か」を固定するだけで、**どのブランチから
+`workflow_dispatch` できるかは縛らない**。ブランチの限定と承認は GitHub 側で行う。
+apply 後、CD を初めて動かす前に設定すること。
+
+`Settings > Environments` で `dev` と `staging` をそれぞれ作成し、以下を設定する。
+
+| 設定 | 値 | 目的 |
+|---|---|---|
+| Deployment branches and tags | `Selected branches` → `main` | main 以外からのデプロイを禁止 |
+| Required reviewers | 承認者を指定（`staging` は必須） | 要件C-17「AI単独の本番反映禁止」 |
+| Wait timer | 任意 | 誤操作時の取り消し猶予 |
+
+- Environment が存在しない状態で `workflow_dispatch` すると、GitHub は Environment を
+  暗黙作成せずジョブが失敗する。**先に作成しておく**
+- Deployment branches を設定しないと、任意のブランチの `cd.yml` から dev/staging へ
+  デプロイできてしまう（IAM 側は Environment 名しか見ていないため）
 
 ### 20.5 Terraform の state ロックが解除されない
 

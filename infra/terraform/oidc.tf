@@ -18,11 +18,25 @@ data "aws_iam_policy_document" "github_deploy_assume" {
       variable = "token.actions.githubusercontent.com:aud"
       values   = ["sts.amazonaws.com"]
     }
-    # 指定リポジトリからのみ許可（全ブランチ）
+    # 指定リポジトリの、指定 Environment を経由したジョブからのみ許可する（要判断G）。
+    #
+    # cd.yml の deploy job は `environment:` を指定している。job が Environment を参照すると
+    # GitHubが発行する sub クレームは `repo:<owner>/<repo>:environment:<名前>` になり、
+    # `ref:refs/heads/main` の形にはならない。ref 形で限定すると CD が AssumeRole に失敗する。
+    #
+    # この条件が固定するのは「どの Environment 経由か」であって、**どのブランチから
+    # workflow_dispatch できるかは縛らない**。ブランチの限定と承認者は GitHub 側の
+    # Environment 保護ルール（Deployment branches / Required reviewers）で設定する。
+    # 手順は docs/ops/aws-contract-build-runbook.md §20.4 を参照。
+    #
+    # Environment を増やすときは cd.yml の choice とここの両方へ追加する。
     condition {
-      test     = "StringLike"
+      test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:*"]
+      values = [
+        "repo:${var.github_repository}:environment:dev",
+        "repo:${var.github_repository}:environment:staging",
+      ]
     }
   }
 }

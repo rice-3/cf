@@ -2,7 +2,7 @@
 
 - 対象リポジトリ: `F:\11\CF`（GitHub: `https://github.com/rice-3/cf.git`）
 - 上位文書: 基本設計 BD-CF-001 v1.2 / 詳細設計 DD-CF-001 v1.2（`G:\マイドライブ\CF\`）
-- 更新日: 2026-07-27（§2.3 突き合わせを実施し不整合2件を修正。§2.4 要判断H＝内部向けパスの外部遮断を実装）
+- 更新日: 2026-07-27（§2.3 突き合わせで不整合2件を修正。§2.4 要判断H＝内部向けパスの外部遮断、§2.5 要判断G＝OIDC信頼条件の限定を実装）
 - 実装済み範囲の詳細は `ses_ai_ddd_implementation_status.md` を参照。
 - 本書は**残タスク**を主役とする。完了済みは §5 に要約のみ記載。
 
@@ -31,6 +31,8 @@
   （SES設定セットが束縛されない / S3キー接頭辞が全環境 `local`）。
 - そこで見つかった「production でも Swagger UI・actuator が無認証公開される」問題は
   **要判断H として決定・実装済み**（ALB＋アプリの多層防御、Swagger UI は dev のみ。§2.4）。
+- **要判断G（OIDC信頼条件）も決定・実装済み**（`sub` を `environment:{dev,staging}` へ限定。§2.5）。
+  ブランチ限定は GitHub の Environment 保護ルールで行うため、**apply 後に GitHub 側の設定が必須**。
 - **進め方**: AWS契約・apply はローカルテスト完了後。それまでは早見表 A（AWS不要）のみを進める。
 
 ### 残タスク早見表
@@ -43,7 +45,7 @@ AWS要否で3分割する（A → B の順に進める）。
 |---|---|---|---|
 | — | IaC/検証 | ~~タスク定義 ⇄ アプリ設定の突き合わせ~~ → **実施済み**（2件を修正、2件を要判断へ繰り上げ） | 2.3 |
 | — | セキュリティ | ~~要判断H: Swagger UI / OpenAPI spec / actuator の外部公開~~ → **決定・実装済み**（ALB＋アプリの多層防御、Swagger UI は dev のみ） | 2.4 |
-| 中 | セキュリティ | 要判断G: GitHub OIDC の信頼条件を `repo:<owner>/<repo>:*`（全ブランチ）から `main` 等へ限定 | 6-G |
+| — | セキュリティ | ~~要判断G: GitHub OIDC の信頼条件~~ → **決定・実装済み**（`sub` を `environment:{dev,staging}` へ限定。**GitHub側のEnvironment作成が apply 後に必須**） | 2.5 |
 | 中 | 認証 | 要判断C: 未登録Cognito SubjectのJIT自動登録の可否。分岐実装とテストはローカルで完結 | 6-C |
 | 中 | 設計/実装 | 要判断B: Outbox配送のSQS切替。ADR起票＋実装（ローカル検証はスタブ/LocalStack） | 6-B |
 | 中 | 実装 | メイン画像のブラウザ直PUT（現状 local/test はS3スタブで実PUTなし。dev以上で必要） | 5.4 |
@@ -56,6 +58,7 @@ AWS要否で3分割する（A → B の順に進める）。
 | 高 | IaC | 実AWSでの `apply`・疎通確認（state置き場の手動作成、ECR先行applyを含む） | 2.1 |
 | 高 | 監視 | メトリクスパイプライン構成（ADOT/CW Agent サイドカー）＋実apply | 2.1 |
 | 高 | DB | 接続分離の**切り替え**: `cf_app_login` 作成 → Secret値投入 → `ecs.tf` 2行変更 → apply | 2.1 |
+| 高 | CD | **GitHub Environment（`dev` / `staging`）の作成と保護ルール設定** — Deployment branches を `main` に限定、Required reviewers を有効化。未設定だと任意ブランチからデプロイできる。CD初回実行前に必須 | 2.5 |
 | 中 | 通知 | SESテンプレート実登録・サンドボックス解除申請 | 3.1 |
 | 中 | 判断 | 要判断A: 監査アーカイブの実出力先（S3バケット/ストレージクラス/保持年数） | 6-A |
 | 中 | 判断 | 要判断E: Cognito実User Poolでの結合確認 | 6-E |
@@ -231,6 +234,46 @@ springdoc を無効化すると `/v3/api-docs` は `SecurityConfig` の `permitA
 
 ---
 
+### 2.5 GitHub OIDC の信頼条件の限定（要判断G・**実装済み 2026-07-27**）
+
+`oidc.tf` の `sub` 条件が `repo:<owner>/<repo>:*` で、リポジトリ内の任意の ref から
+デプロイロールを assume できる状態だった。
+
+#### 素直な「`ref:refs/heads/main` へ限定」は誤り
+
+`cd.yml` の deploy job は `environment: ${{ inputs.environment }}` を指定している。
+**job が Environment を参照すると、GitHubが発行する `sub` クレームは
+`repo:<owner>/<repo>:environment:<名前>` になり、`ref:refs/heads/main` の形にはならない。**
+ref 形へ変更すると CD は必ず AssumeRole に失敗する。
+
+runbook §20.4 は変更前まさに `ref:refs/heads/main` を推奨していたため、あわせて訂正した。
+
+#### 採用した構成（IAMとGitHubで役割分担）
+
+| 層 | 固定するもの | 実装 |
+|---|---|---|
+| IAM（`oidc.tf`） | **どの Environment 経由か** | `sub` を `repo:<owner>/<repo>:environment:dev` と `:environment:staging` の2つに `StringEquals` |
+| GitHub（Environment保護） | **どのブランチから dispatch できるか / 承認者** | `Settings > Environments` で Deployment branches を `main` に限定、Required reviewers を有効化 |
+
+**IAM 側の条件はブランチを縛らない。** `sub` に ref が含まれないため、GitHub 側の保護ルールを
+設定しない限り任意ブランチの `cd.yml` から dev/staging へデプロイできる。
+このGitHub側設定は **apply 後・CD初回実行前の必須作業**として runbook §20.4.1 に手順化した。
+
+#### 運用上の注意
+
+`workflow_dispatch` の Environment 選択肢を増やすときは、**`cd.yml` と `oidc.tf` の両方**へ
+同じ名前を追加する。片方だけだと AssumeRole が
+`Not authorized to perform sts:AssumeRoleWithWebIdentity` で失敗する。
+
+#### 検討したが採らなかった案
+
+`job_workflow_ref`（`<repo>/.github/workflows/cd.yml@refs/heads/main`）を IAM 条件に追加すると、
+GitHub 側の設定漏れがあってもブランチを固定できる。ただし**この条件キーが実際に効くかを
+AWS 認証情報が無い現状では検証できず**、効かなければ初回 CD が AssumeRole に失敗する。
+未検証の条件を apply 前に入れない方針とし、見送った（apply 後に実機で確認してから追加する）。
+
+---
+
 ## 3. 残タスク（優先度: 中）
 
 ### 3.1 SESテンプレートのAWS登録
@@ -372,7 +415,7 @@ springdoc を無効化すると `/v3/api-docs` は `SecurityConfig` の `permitA
 | D | ~~ADR-BFF配置 / 決済非同期UI / Rich Text形式 の3件が未起票~~ → **起票済み** | ADR-0004（BFF配置）/ ADR-0005（決済非同期UI）/ ADR-0006（本文プレーンテキスト）。既定動作を追認する形で文書化 |
 | E | Cognito実User Poolでの結合確認 | 未実施（テストはlocal/testの開発用ヘッダー認証のみ）。dev環境構築時に実施 |
 | F | dev環境の稼働モードとコスト構成 | 常時稼働は月4.3〜5.0万円。Interface VPCエンドポイント（12 ENI、約1.9万円/月）の要否、`desired_count`、Container Insights、WAFの取捨で1.5〜2.0万円まで低減可。「都度 apply/destroy」運用なら数千円。予算責任者の決定が必要（手順書 §3） |
-| G | GitHub OIDC の信頼条件 | `oidc.tf` の `sub` は `repo:<owner>/<repo>:*` で全ブランチ許可。任意ブランチからデプロイ可能なため、`ref:refs/heads/main` 等への限定を検討（手順書 §20.4） |
+| G | ~~GitHub OIDC の信頼条件~~ → **決定済み（2026-07-27）: `sub` を `environment:{dev,staging}` に限定。ブランチ限定と承認者は GitHub の Environment 保護で行う** | 実装済み。詳細は §2.5 |
 | H | ~~Swagger UI / OpenAPI spec / `/actuator/prometheus` の環境別公開可否~~ → **決定済み（2026-07-27）: ALB＋アプリの多層防御。Swagger UI は dev のみ残す** | 実装済み。詳細は §2.4 |
 
 > 解決済みの要判断: 起案者向け通知の宛先解決（ADR-0002）、冪等記録削除バッチ（BAT-010）、
@@ -402,3 +445,4 @@ springdoc を無効化すると `/v3/api-docs` は `SecurityConfig` の `permitA
 | `permitAll` のパスで実体が消えると500 | `permitAll` はセキュリティを通過させるだけで、その先にハンドラが無ければ `NoResourceFoundException` になる。汎用ハンドラに落ちると**404ではなく500**になり、外部スキャンだけで5xxアラートを誘発できる。`GlobalExceptionHandler` に404ハンドラを追加済み（§2.4） |
 | ALBヘルスチェックとリスナールール | ターゲットグループのヘルスチェックは**リスナールールを経由しない**（LBノードからターゲットへ直接）。`/actuator/*` をリスナールールで404にしても `/actuator/health` の死活監視は生きる（§2.4） |
 | ハイフンを含む設定キーの環境変数名 | `springdoc.api-docs.enabled` のようにハイフンを含むキーは、環境変数形が `SPRINGDOC_APIDOCS_ENABLED` か `SPRINGDOC_API_DOCS_ENABLED` か紛らわしい。**推測せず実際に起動して応答で確かめる**（§2.4 に実測表） |
+| GitHub OIDC の `sub` は Environment で形が変わる | job が `environment:` を参照すると `sub` は `repo:<owner>/<repo>:environment:<名前>` になり、**`ref:refs/heads/main` の形にならない**。ref 形で絞ると CD が AssumeRole に失敗する。`sub` はブランチを縛らないので、ブランチ限定は GitHub の Environment 保護ルール側で行う（§2.5） |
