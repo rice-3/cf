@@ -62,9 +62,30 @@ export function MainImageUploader({
         return;
       }
 
-      // 実S3環境ではここで issued.data.uploadUrl へ直接PUTする（§10.2）。
-      // local/testのS3スタブは発行時点で完了扱いのため、本アプリではPUTを行わない
-      // （backend結合テストと同じ挙動。dev以上のS3接続時はPUTの追加が必要）。
+      // 署名付きURLへブラウザから直接PUTする（§10.2）。バケットは非公開のため、
+      // この経路以外でオブジェクトは作られない。
+      // local/test のS3スタブは発行時点で完了扱いにするため uploadRequired=false を返す
+      // （URLも到達不能な予約ドメインなのでPUTしてはいけない）。
+      if (issued.data.uploadRequired) {
+        let putResponse: Response;
+        try {
+          putResponse = await fetch(issued.data.uploadUrl, {
+            method: "PUT",
+            headers: issued.data.headers,
+            body: file,
+          });
+        } catch {
+          setError("画像のアップロードに失敗しました。通信環境を確認してください。");
+          setStatus("error");
+          return;
+        }
+        if (!putResponse.ok) {
+          // 署名切れ・Content-Type不一致など。完了APIを呼んでも実体が無いので進めない。
+          setError("画像のアップロードに失敗しました。時間をおいて再度お試しください。");
+          setStatus("error");
+          return;
+        }
+      }
 
       const completed = await completeUpload(issued.data.fileId, sha256);
       if (!completed.ok) {

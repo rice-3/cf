@@ -41,8 +41,6 @@ flowchart LR
 
     ECS --> RDS[(RDS PostgreSQL 18<br/>Private Subnet)]
     ECS --> S3[S3<br/>files bucket]
-    ECS --> SQS[SQS outbox]
-    SQS --> DLQ[SQS outbox-dlq]
     ECS --> SES[SES<br/>通知メール]
     ECS --> SM[Secrets Manager]
 
@@ -50,7 +48,7 @@ flowchart LR
     Cognito -. JWT検証 .-> ECS
 
     ECS --> NAT[NAT Gateway]
-    ECS -. VPC Endpoint .-> VPCE[ECR / Logs / SecretsManager / SQS / STS / S3]
+    ECS -. VPC Endpoint .-> VPCE[ECR / Logs / SecretsManager / STS / S3]
 
     subgraph CICD[CI/CD]
         GH[GitHub Actions cd.yml] --> OIDC[GitHub OIDC Provider]
@@ -77,7 +75,7 @@ flowchart LR
 | 区分 | 主なリソース | 定義ファイル |
 |---|---|---|
 | ネットワーク | VPC `10.20.0.0/16` / Public・Private サブネット各2 / IGW / NAT×1 / ルートテーブル | `network.tf` |
-| エンドポイント | S3(Gateway) / ECR api・dkr / Logs / SecretsManager / SQS / STS（Interface×6） | `vpc_endpoints.tf` |
+| エンドポイント | S3(Gateway) / ECR api・dkr / Logs / SecretsManager / STS（Interface×5） | `vpc_endpoints.tf` |
 | セキュリティグループ | ALB / ECS / RDS / VPCE | `security_groups.tf` |
 | 入口 | ALB / Target Group（`/actuator/health`）/ HTTP 80（+ HTTPS 443） | `alb.tf` |
 | 証明書 | ACM（`domain_name` 指定時のみ、DNS 検証） | `acm.tf` |
@@ -85,7 +83,7 @@ flowchart LR
 | コンテナ | ECR（scan on push / 直近10世代）/ ECS クラスタ（Container Insights 有効・Exec ログ記録）/ タスク定義 / サービス（ECS Exec 有効） | `ecr.tf`, `ecs.tf` |
 | DB | RDS PostgreSQL 18 / gp3 20GB（最大100GB）/ マスターパスワードは Secrets Manager 自動管理 | `rds.tf` |
 | ストレージ | S3 files バケット（公開ブロック / バージョニング / SSE-S3 / ライフサイクル / CORS） | `s3.tf` |
-| 非同期 | SQS outbox + DLQ（maxReceiveCount=5） | `sqs.tf` |
+| 非同期 | Outbox配送はアプリ内（`InProcessOutboxDispatcher`）。SQSは使わない（ADR-0008） | — |
 | 認証 | Cognito User Pool / App Client（secret あり）/ Hosted UI ドメイン | `cognito.tf` |
 | メール | SES ドメイン ID・DKIM（`ses_domain` 指定時）/ 構成セット | `ses.tf` |
 | IAM | ECS 実行ロール / タスクロール / GitHub OIDC Provider / デプロイロール | `iam.tf`, `oidc.tf` |
@@ -118,7 +116,7 @@ flowchart LR
 
 | 項目 | 構成 | 月額(USD) | 月額(円) |
 |---|---|---:|---:|
-| Interface VPC Endpoint | 6サービス × 2AZ = 12 ENI × $0.014/h | 約 123 | 約 19,000 |
+| Interface VPC Endpoint | 5サービス × 2AZ = 10 ENI × $0.014/h | 約 102 | 約 15,800 |
 | NAT Gateway | 1台 × $0.062/h + 転送量 | 約 46 | 約 7,100 |
 | Fargate | 2タスク × 0.5vCPU/1GB | 約 45 | 約 7,000 |
 | RDS | db.t4g.micro Single-AZ + gp3 20GB | 約 22 | 約 3,400 |
@@ -127,10 +125,10 @@ flowchart LR
 | WAF | WebACL $5 + ルール3 $3 + リクエスト | 約 9 | 約 1,400 |
 | CloudWatch Logs / Alarm / Dashboard | 90日保持・アラーム20個前後 | 約 5〜15 | 約 800〜2,300 |
 | Secrets Manager | 2シークレット × $0.40 | 約 1 | 約 150 |
-| S3 / SQS / ECR / Cognito / SES | 教育用の小規模利用（Cognito は 50,000 MAU まで無料枠） | 約 3 | 約 500 |
-| **合計** | | **約 280〜320** | **約 43,000〜50,000** |
+| S3 / ECR / Cognito / SES | 教育用の小規模利用（Cognito は 50,000 MAU まで無料枠） | 約 3 | 約 500 |
+| **合計** | | **約 260〜300** | **約 40,000〜46,000** |
 
-**支配的なのは VPC Interface Endpoint（12 ENI）と NAT Gateway で、両方合わせて全体の約 6 割**である。
+**支配的なのは VPC Interface Endpoint（10 ENI）と NAT Gateway で、両方合わせて全体の約 6 割**である。
 これは「NAT を減らすためにエンドポイントを置き、エンドポイントの固定費が NAT を上回っている」状態であり、
 `dev` では見直す価値がある（§3.3）。
 
@@ -138,7 +136,7 @@ flowchart LR
 
 | モード | 内容 | 月額目安 |
 |---|---|---|
-| A: 常時稼働 | 24h 起動。staging/production 相当の検証が可能 | 4.3〜5.0万円 |
+| A: 常時稼働 | 24h 起動。staging/production 相当の検証が可能 | 4.0〜4.6万円 |
 | B: 節約構成で常時稼働 | §3.3 の削減を適用 | 1.5〜2.0万円 |
 | C: 使うときだけ apply | 学習・検証セッションごとに `apply` → `destroy` | 数百〜数千円 |
 
@@ -152,7 +150,7 @@ C を選ぶ場合は §19（破棄手順）の落とし穴を必ず読むこと�
 
 | # | 変更 | 削減額/月 | 影響 |
 |---|---|---:|---|
-| 1 | Interface Endpoint を廃止し NAT 経由に一本化（`vpc_endpoints.tf` の Interface 分を `count` で無効化） | 約 19,000円 | AWS API 通信が NAT 経由になり転送料が増える（教育用の通信量なら数百円）。S3 Gateway Endpoint は無料なので残す |
+| 1 | Interface Endpoint を廃止し NAT 経由に一本化（`vpc_endpoints.tf` の Interface 分を `count` で無効化） | 約 15,800円 | AWS API 通信が NAT 経由になり転送料が増える（教育用の通信量なら数百円）。S3 Gateway Endpoint は無料なので残す |
 | 2 | `desired_count = 1` | 約 3,500円 | 単一タスク。ローリング更新時に瞬断。ShedLock による多重起動防止の検証はできなくなる |
 | 3 | Container Insights を無効化（`ecs.tf` の `setting`） | 約 1,500〜6,200円 | ECS のコンテナ単位メトリクスが失われる。ALB/RDS のアラームは維持される |
 | 4 | `enable_waf = false` | 約 1,400円 | WAF 検証ができない。インターネット公開する場合は非推奨 |
@@ -564,7 +562,7 @@ terraform output
 | `aws_region` / `deploy_role_arn` / `ecr_repository` / `ecs_cluster` / `ecs_service` / `ecs_task_family` / `container_name` | GitHub Variables（§14.3） |
 | `alb_dns_name` | 疎通確認の宛先 |
 | `cognito_user_pool_id` / `cognito_web_client_id` / `cognito_issuer` / `cognito_domain` | フロントの認証設定 |
-| `s3_file_bucket` / `outbox_queue_url` | アプリ環境変数（Terraform が ECS へ自動注入済み） |
+| `s3_file_bucket` | アプリ環境変数（Terraform が ECS へ自動注入済み） |
 | `acm_dns_validation_records` | `route53_zone_id` 未指定時の手動 DNS 登録 |
 | `ses_dkim_tokens` | SES DKIM の CNAME 登録 |
 | `alerts_sns_topic_arn` / `dashboard_name` | 監視 |
@@ -964,7 +962,7 @@ Cost Explorer を Usage type でグループ化する。上位に来やすいの
 - [ ] `/actuator/health` が UP
 - [ ] Flyway 移行が適用済み
 - [ ] Cognito 認証で業務 API を呼べる
-- [ ] S3 / SQS / SES が動作する
+- [ ] S3 / SES が動作する
 - [ ] アプリ DB ユーザー（`cf_app_login`）を作成し実行時接続を分離した
 
 ### 21.4 監視・運用
@@ -1021,6 +1019,6 @@ IaC準備:     state用 S3 + DynamoDB 作成 → terraform.tfvars 作成 → fmt
 構築:        init(partial backend) → ECR先行apply → bootstrapイメージpush → 全体apply → output記録
 設定:        Secrets値 → GitHub Variables → DNS(ACM/SES) → DBユーザー → SNS購読承認
 デプロイ:    cd.yml 手動実行（environment承認）→ ローリング更新
-確認:        health / Flyway / 認証 / S3 / SQS / SES / アラーム発火テスト
+確認:        health / Flyway / 認証 / S3 / SES / アラーム発火テスト
 運用:        日次コスト確認 → 使わない期間は destroy → 再現性を定期確認
 ```

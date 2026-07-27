@@ -697,6 +697,7 @@ export interface components {
             headers?: {
                 [key: string]: string;
             };
+            uploadRequired?: boolean;
             uploadUrl?: string;
         };
         OperationsSupportListItem: {

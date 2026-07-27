@@ -125,9 +125,9 @@ export async function issueUpload(input: {
 /**
  * API-FL-002 アップロード完了。
  *
- * 本来はブラウザがuploadUrlへ直接PUTした後に呼ぶ（§10.2）。
- * local/testはS3スタブ（`StubFileStorageAdapter`）が発行時にHeadObject相当を
- * 同期記録するため、PUTなしでも完了できる（backendの結合テストと同じ挙動）。
+ * ブラウザがuploadUrlへ直接PUTした後に呼ぶ（§10.2）。
+ * local/testはS3スタブ（`StubFileStorageAdapter`）が発行時にHeadObject相当を同期記録し、
+ * `uploadRequired: false` を返すため、PUTなしでも完了できる（backendの結合テストと同じ挙動）。
  */
 export async function completeUpload(
   fileId: string,

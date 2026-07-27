@@ -49,11 +49,6 @@ output "s3_file_bucket" {
   value       = aws_s3_bucket.files.bucket
 }
 
-output "outbox_queue_url" {
-  description = "Outbox SQS キューURL（CF_OUTBOX_SQS_QUEUE_URL）"
-  value       = aws_sqs_queue.outbox.url
-}
-
 output "app_login_secret_id" {
   description = "アプリ実行時DBユーザー cf_app_login のパスワード格納先（値は apply 後に手動投入）"
   value       = aws_secretsmanager_secret.app_login.name

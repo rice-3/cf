@@ -46,9 +46,9 @@ variable "desired_count" {
 }
 
 variable "enable_ecs_exec" {
-  description = "ECS Exec（SSM経由のセッション/ポートフォワード）を有効化するか。Private配置のRDSへの保守経路として使う。操作は監査ログへ記録される。productionでは原則 false（必要時のみ一時有効化）。"
+  description = "ECS Exec（SSM経由のセッション/ポートフォワード）を有効化するか。Private配置のRDSへの保守経路として使う。操作は監査ログへ記録される。未指定なら environment から決まる（production は false、それ以外は true）。production で保守のため一時的に開ける場合だけ明示的に true を渡し、作業後に戻す。"
   type        = bool
-  default     = true
+  default     = null
 }
 
 variable "health_check_grace_period_seconds" {

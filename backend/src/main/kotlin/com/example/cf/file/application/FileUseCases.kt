@@ -35,6 +35,8 @@ data class IssueUploadResult(
     val uploadUrl: String,
     val headers: Map<String, String>,
     val expiresAt: Instant,
+    /** クライアントが [uploadUrl] へ実際にPUTする必要があるか（local/testのスタブでは false）。 */
+    val uploadRequired: Boolean,
 )
 
 data class CompleteUploadCommand(
@@ -103,6 +105,7 @@ class IssueUploadUrlService(
             uploadUrl = presigned.url,
             headers = presigned.headers,
             expiresAt = now.plusSeconds(properties.uploadUrlExpirySeconds),
+            uploadRequired = presigned.uploadRequired,
         )
     }
 

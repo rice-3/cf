@@ -4,10 +4,17 @@ import com.example.cf.file.domain.model.StoredObjectHead
 import org.springframework.boot.context.properties.ConfigurationProperties
 import java.time.Duration
 
-/** 署名付きアップロードURL（§10.2）。headersはPUT時に必須のヘッダー。 */
+/**
+ * 署名付きアップロードURL（§10.2）。headersはPUT時に必須のヘッダー。
+ *
+ * [uploadRequired] は「クライアントが [url] へ実際にPUTする必要があるか」。
+ * 実S3では常にtrueだが、local/testの教育用スタブは発行時点で完了扱いにするため false を返す
+ * （スタブURLは到達不能なので、PUTすると必ず失敗する）。クライアントはこの値で分岐する。
+ */
 data class PresignedUpload(
     val url: String,
     val headers: Map<String, String>,
+    val uploadRequired: Boolean,
 )
 
 /**

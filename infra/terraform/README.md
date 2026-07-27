@@ -15,13 +15,12 @@
 | `ecs.tf` | ECSクラスタ / Fargateタスク定義 / サービス |
 | `rds.tf` | PostgreSQL 18（マスターパスワードはSecrets Manager自動管理） |
 | `s3.tf` | ファイル用バケット（公開ブロック / バージョニング / SSE / ライフサイクル / CORS） |
-| `sqs.tf` | Outbox配送用キュー + DLQ（要判断B、SQS化の受け皿） |
 | `ses.tf` | SES送信ドメインID・DKIM（`ses_domain` 指定時）/ 構成セット |
 | `cognito.tf` | Cognito User Pool / App Client / ドメイン（認証） |
 | `waf.tf` | WAF WebACL（AWSマネージドルール + レート制限）+ ALB関連付け |
-| `vpc_endpoints.tf` | S3(Gateway) / ECR・Logs・SecretsManager・SQS・STS(Interface) |
+| `vpc_endpoints.tf` | S3(Gateway) / ECR・Logs・SecretsManager・STS(Interface) |
 | `monitoring.tf` | CloudWatch アラーム（ALB/ECS/RDS + ビジネス/バッチ）+ ダッシュボード + SNS通知 |
-| `iam.tf` | ECSタスク実行ロール / タスクロール（S3/SQS/SES/Secrets） |
+| `iam.tf` | ECSタスク実行ロール / タスクロール（S3/SES/Secrets） |
 | `oidc.tf` | GitHub OIDCプロバイダ + CDデプロイロール |
 | `secrets.tf` | Secrets Manager（決済Webhookキー等） |
 | `logs.tf` | CloudWatch Logs |
@@ -36,7 +35,7 @@
 | `ses_domain` | `""` | SES送信ドメインID・DKIMを作成（`ses_dkim_tokens` をDNSへ登録して検証） |
 | `ses_from_address` | `""` | 通知メール送信元（`CF_SES_FROM_ADDRESS`）。空なら `no-reply@<ses_domain>` を導出。両方空は無効ドメインのまま |
 | `health_check_grace_period_seconds` | `180` | ECSサービスがALBヘルスチェックを無視する起動猶予（Spring Boot起動+Flyway移行の所要時間） |
-| `enable_ecs_exec` | `true` | ECS Exec（SSMセッション/ポートフォワード）。Private配置RDSへの保守経路。productionでは原則 `false` |
+| `enable_ecs_exec` | 無指定 | ECS Exec（SSMセッション/ポートフォワード）。Private配置RDSへの保守経路。**無指定なら `environment` から決まる（production は `false`、それ以外は `true`）**。production で一時的に開けるときだけ明示的に `true` を渡し、作業後に戻す |
 | `enable_waf` | `true` | ALBへWAFを関連付け |
 | `waf_rate_limit` | `2000` | レートベースルールの1IP/5分上限 |
 | `cognito_callback_urls` / `cognito_logout_urls` | localhost | Cognito App Client のOIDC URL |
@@ -74,7 +73,6 @@ DataSource は **Spring Boot の Relaxed Binding に従う名前**で注入す�
 | `SPRING_FLYWAY_USER` | Terraform（`db_username` = オーナー。移行は常にオーナーが実行する） |
 | `SPRING_FLYWAY_PASSWORD` | Secrets Manager（RDS管理シークレットの `password` キー） |
 | `COGNITO_ISSUER` / `CF_FILE_BUCKET` / `CF_FILE_KEY_PREFIX` / `CF_SES_CONFIGURATION_SET` / `CF_SES_FROM_ADDRESS` / `AWS_REGION` | Terraform |
-| `CF_OUTBOX_SQS_QUEUE_URL` | Terraform（**現状アプリ側に読む実装が無い**。Outbox は `InProcessOutboxDispatcher`。要判断B） |
 | `CF_PAYMENT_WEBHOOK_SECRET` | Secrets Manager（値は apply 後に手動投入） |
 
 `CF_` 系の短い名前は Relaxed Binding では束縛されない。`application.yml` に
@@ -166,7 +164,7 @@ Terraformの `postgresql` provider はDB到達性が必要で `validate`/CIで�
    ```
 
    RDSは Private サブネット・`publicly_accessible=false` のため、ローカルから直接は接続できない。
-   `enable_ecs_exec = true`（既定）なら **SSMポートフォワード**で経路を作る（実行中のECSタスクを踏み台にする。
+   ECS Exec が有効（dev/staging の既定）なら **SSMポートフォワード**で経路を作る（実行中のECSタスクを踏み台にする。
    コンテナイメージに psql は含まれないため、psql はローカルで動かす）:
 
    ```bash

@@ -8,7 +8,7 @@ resource "aws_ecs_cluster" "main" {
 
   # ECS Exec のセッション内容をCloudWatchへ記録する（手動操作は監査対象、要件C-17）。
   dynamic "configuration" {
-    for_each = var.enable_ecs_exec ? [1] : []
+    for_each = local.enable_ecs_exec ? [1] : []
 
     content {
       execute_command_configuration {
@@ -62,9 +62,6 @@ resource "aws_ecs_task_definition" "backend" {
         # S3キーの先頭に付く環境識別子（詳細設計 §10.2: env/userId/fileId/...）。
         # 未注入だとアプリ既定の "local" のままになり、環境間でキー空間が分離されない。
         { name = "CF_FILE_KEY_PREFIX", value = var.environment },
-        # TODO(question): Outbox配送は現状 InProcessOutboxDispatcher（アプリ内）で、この変数を読む実装が無い。
-        # SQSへ切り替えるか否かは要判断B。キューと task role の権限だけ先に存在している状態。
-        { name = "CF_OUTBOX_SQS_QUEUE_URL", value = aws_sqs_queue.outbox.url },
         { name = "CF_SES_CONFIGURATION_SET", value = aws_sesv2_configuration_set.main.configuration_set_name },
         # 送信元。ses_domain / ses_from_address 未設定時はアプリ既定と同じ無効ドメインが入る（送信は失敗する）
         { name = "CF_SES_FROM_ADDRESS", value = local.ses_from_address },
@@ -108,7 +105,7 @@ resource "aws_ecs_service" "backend" {
   health_check_grace_period_seconds = var.health_check_grace_period_seconds
 
   # Private配置のRDSへの保守経路（SSMポートフォワード）。実行にはIAM側の ecs:ExecuteCommand も必要。
-  enable_execute_command = var.enable_ecs_exec
+  enable_execute_command = local.enable_ecs_exec
 
   network_configuration {
     subnets         = aws_subnet.private[*].id

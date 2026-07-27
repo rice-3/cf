@@ -23,7 +23,7 @@ data class OutboxProperties(
 
 /**
  * イベント配送先（§9.1: SQSまたはアプリ内Handler）。
- * localは内部Handler、dev以上はSQS Adapterへ差し替える。
+ * 全環境でアプリ内Handler（[InProcessOutboxDispatcher]）を使う（ADR-0008）。
  */
 interface OutboxDispatcher {
     fun dispatch(event: OutboxEventJpaEntity)

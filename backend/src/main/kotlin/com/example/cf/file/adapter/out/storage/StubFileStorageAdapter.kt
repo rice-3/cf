@@ -32,6 +32,8 @@ class StubFileStorageAdapter : FileStoragePort {
         return PresignedUpload(
             url = "https://s3.stub.invalid/$bucket/$key?X-Amz-Expires=${expiry.seconds}&X-Amz-Signature=stub",
             headers = mapOf("Content-Type" to contentType),
+            // URLは到達不能な予約ドメイン（RFC 6761 .invalid）。PUTさせずに完了扱いとする
+            uploadRequired = false,
         )
     }
 

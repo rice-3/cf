@@ -5,11 +5,12 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 
 /**
- * アプリ内Handlerへ配送するDispatcher（§9.1: SQSまたはアプリ内）。
+ * アプリ内Handlerへ配送するDispatcher（基本設計 §8.1 BAT-006「SQSまたはアプリ内」、ADR-0008）。
  *
- * 教育用モジュラーモノリスでは Spring の ApplicationEvent として配送し、
- * 各コンテキストの `@EventListener` が購読する。
- * dev以上でSQSへ切り替える場合は本クラスをSQS Adapterへ差し替える（ADR候補）。
+ * Spring の ApplicationEvent として配送し、各コンテキストの `@EventListener` が購読する。
+ * 単一backendプロセス（ADR-0001）である限りSQSを挟んでも配送先は同一JVMのまま変わらないため、
+ * **アプリ内配送を正式な構成として採用する**（ADR-0008）。
+ * 将来Workerを別サービスへ切り出す場合はADR-0008を差し替え、本クラスをSQS Adapterへ置き換える。
  */
 @Component
 class InProcessOutboxDispatcher(

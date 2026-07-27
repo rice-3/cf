@@ -57,6 +57,8 @@ class S3FileStorageAdapter :
         return PresignedUpload(
             url = presigned.url().toString(),
             headers = presigned.signedHeaders().mapValues { it.value.first() },
+            // 実S3ではブラウザがこのURLへPUTしない限りオブジェクトが存在せず、完了APIのHeadObjectが空振りする
+            uploadRequired = true,
         )
     }
 

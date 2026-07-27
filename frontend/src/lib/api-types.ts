@@ -91,6 +91,8 @@ export interface IssueUploadResponse {
   uploadUrl: string;
   headers: Record<string, string>;
   expiresAt: string;
+  /** uploadUrl へ実際にPUTしてから完了APIを呼ぶ必要があるか。local/testのS3スタブでは false。 */
+  uploadRequired: boolean;
 }
 
 export interface CompleteUploadResponse {

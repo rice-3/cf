@@ -1253,6 +1253,8 @@ components:
           type: object
           additionalProperties:
             type: string
+        uploadRequired:
+          type: boolean
         uploadUrl:
           type: string
     OperationsSupportListItem:

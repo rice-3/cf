@@ -13,12 +13,13 @@ resource "aws_vpc_endpoint" "s3" {
 
 # インターフェース型エンドポイント（ENIをprivateサブネットに配置）。
 locals {
+  # アプリが実際に呼ぶサービスだけを並べる。1つあたりAZ数分のENIと時間課金が発生するため、
+  # 使わないサービスのエンドポイントは置かない（sqs はADR-0008でアプリ内配送に確定したので不要）。
   interface_endpoints = [
     "ecr.api",
     "ecr.dkr",
     "logs",
     "secretsmanager",
-    "sqs",
     "sts",
   ]
 }

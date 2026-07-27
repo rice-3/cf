@@ -6,7 +6,7 @@ resource "aws_cloudwatch_log_group" "ecs" {
 
 # ECS Exec のセッションログ。手動操作の証跡のためアプリログより長く保持する（要件C-17）。
 resource "aws_cloudwatch_log_group" "ecs_exec" {
-  count             = var.enable_ecs_exec ? 1 : 0
+  count             = local.enable_ecs_exec ? 1 : 0
   name              = "/ecs/${local.name_prefix}-exec"
   retention_in_days = 365
   tags              = { Name = "${local.name_prefix}-ecs-exec-logs" }

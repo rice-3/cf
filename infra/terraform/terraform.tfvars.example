@@ -22,7 +22,9 @@ github_repository = "rice-3/cf"
 # ECS起動猶予（Spring Boot起動 + Flyway移行がALBヘルスチェックに間に合わない場合に延長）
 # health_check_grace_period_seconds = 180
 
-# ECS Exec（Private配置RDSへのSSMポートフォワード経路）。production では原則 false
+# ECS Exec（Private配置RDSへのSSMポートフォワード経路）。
+# 無指定なら environment から決まる（production は false、dev/staging は true）。
+# production で保守のため一時的に開けるときだけ true を書き、作業後に必ず消して apply し直す。
 # enable_ecs_exec   = true
 
 # WAF

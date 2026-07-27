@@ -39,7 +39,7 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
   policy = data.aws_iam_policy_document.ecs_execution_secrets.json
 }
 
-# タスクロール: アプリ実行時のAWSアクセス（S3/SQS/SES/Secrets）
+# タスクロール: アプリ実行時のAWSアクセス（S3/SES/Secrets）
 resource "aws_iam_role" "ecs_task" {
   name               = "${local.name_prefix}-ecs-task-role"
   assume_role_policy = data.aws_iam_policy_document.ecs_assume.json
@@ -67,21 +67,12 @@ data "aws_iam_policy_document" "ecs_task" {
     actions   = ["s3:ListBucket", "s3:GetBucketLocation"]
     resources = [aws_s3_bucket.files.arn]
   }
-  # Outbox配送のSQS化（要判断B）に備えた送受信権限
-  statement {
-    sid = "Sqs"
-    actions = [
-      "sqs:SendMessage",
-      "sqs:ReceiveMessage",
-      "sqs:DeleteMessage",
-      "sqs:GetQueueAttributes",
-    ]
-    resources = [aws_sqs_queue.outbox.arn, aws_sqs_queue.outbox_dlq.arn]
-  }
+  # SQSの権限は持たせない。Outbox配送はアプリ内（ADR-0008）で、アプリはSQSを呼ばない。
+  # 将来Workerを別サービスへ切り出す場合は、ADR-0008を差し替えたうえで復活させる。
 
   # ECS Exec: タスク内のSSMエージェントがチャネルを確立するために必要（リソース指定不可）。
   dynamic "statement" {
-    for_each = var.enable_ecs_exec ? [1] : []
+    for_each = local.enable_ecs_exec ? [1] : []
 
     content {
       sid = "EcsExecSsmMessages"
@@ -97,7 +88,7 @@ data "aws_iam_policy_document" "ecs_task" {
 
   # ECS Exec: セッションログ出力先の探索（APIがリソース指定に対応しない）。
   dynamic "statement" {
-    for_each = var.enable_ecs_exec ? [1] : []
+    for_each = local.enable_ecs_exec ? [1] : []
 
     content {
       sid       = "EcsExecLogGroupDiscovery"
@@ -108,7 +99,7 @@ data "aws_iam_policy_document" "ecs_task" {
 
   # ECS Exec: セッションログの書き込み（専用ロググループのみ）。
   dynamic "statement" {
-    for_each = var.enable_ecs_exec ? [1] : []
+    for_each = local.enable_ecs_exec ? [1] : []
 
     content {
       sid = "EcsExecSessionLogs"

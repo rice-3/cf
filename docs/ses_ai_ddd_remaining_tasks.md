@@ -50,9 +50,12 @@ AWS要否で3分割する（A → B の順に進める）。
 | — | セキュリティ | ~~要判断H: Swagger UI / OpenAPI spec / actuator の外部公開~~ → **決定・実装済み**（ALB＋アプリの多層防御、Swagger UI は dev のみ） | 2.4 |
 | — | セキュリティ | ~~要判断G: GitHub OIDC の信頼条件~~ → **決定・実装済み**（`sub` を `environment:{dev,staging}` へ限定。**GitHub側のEnvironment作成が apply 後に必須**） | 2.5 |
 | — | 認証 | ~~要判断C: 未登録Cognito SubjectのJIT自動登録の可否~~ → **決定・実装済み**（許容。`token_use` / `client_id` 検証とJIT監査記録を追加。ADR-0007） | 2.6 |
-| 中 | 設計/実装 | 要判断B: Outbox配送のSQS切替。ADR起票＋実装（ローカル検証はスタブ/LocalStack） | 6-B |
-| 中 | 実装 | メイン画像のブラウザ直PUT（現状 local/test はS3スタブで実PUTなし。dev以上で必要） | 5.4 |
-| 低 | 運用判断 | production の `enable_ecs_exec` 既定値（常時 `false` にして必要時のみ有効化するか） | 2.1 |
+| — | 設計/実装 | ~~要判断B: Outbox配送のSQS切替~~ → **決定・実装済み**（アプリ内配送で確定。未使用のSQS資産を削除。ADR-0008） | 2.7 |
+| — | 実装 | ~~メイン画像のブラウザ直PUT~~ → **実装済み**（`uploadRequired` で分岐。§2.8） | 2.8 |
+| — | 運用判断 | ~~production の `enable_ecs_exec` 既定値~~ → **決定・実装済み**（`environment` から導出。production は `false`） | 2.9 |
+
+> **表 A（AWS不要）は全件完了。** 次に進められるのは表 B（AWS必須）で、AWS契約と
+> ローカルテスト完了が前提になる。
 
 #### B. AWS必須 — 認証情報・実アカウントが要る（ローカルテスト完了後）
 
@@ -84,7 +87,7 @@ AWS要否で3分割する（A → B の順に進める）。
 ### 2.1 IaC — 未カバーのAWSリソースと監視の実配線（Terraform、ADR-007）
 
 - [x] **未カバーのAWSリソースの Terraform コード化** — ACM+HTTPS(`acm.tf`/`alb.tf`) / S3ファイルバケット(`s3.tf`) /
-      SQS+DLQ(`sqs.tf`) / SES ドメイン検証・DKIM(`ses.tf`) / Cognito User Pool・Client(`cognito.tf`) /
+      ~~SQS+DLQ(`sqs.tf`)~~（ADR-0008 で削除。§2.7） / SES ドメイン検証・DKIM(`ses.tf`) / Cognito User Pool・Client(`cognito.tf`) /
       WAF(`waf.tf`) / VPCエンドポイント(`vpc_endpoints.tf`) を追加し、IAM/ECS環境変数へ配線。
       `terraform fmt -check` / `init` / `validate` 済み（provider aws v5.100）。ドメイン/SESはvarでゲート。
 - [ ] **実AWSでの apply と疎通確認** — AWS認証情報が必要なため未実施。**手順は
@@ -97,13 +100,14 @@ AWS要否で3分割する（A → B の順に進める）。
         （初期タスク定義が存在しないイメージを参照するため。手順書 §13.2）。
   - [ ] `apply` 後の手作業: Secrets Manager の決済Webhookキー値投入 / Cognito App Client Secret のフロント設定 /
         GitHub Variables 7件 / ACM・SES の DNS レコード / SNS購読承認（手順書 §14）。
-- [x] **Private配置RDSへの保守経路（ECS Exec）** — 2026-07-26 対応。`enable_ecs_exec`（既定 `true`）で
+- [x] **Private配置RDSへの保守経路（ECS Exec）** — 2026-07-26 対応。`enable_ecs_exec` で
       `aws_ecs_service.enable_execute_command` + タスクロールへ `ssmmessages` 4アクション、
       セッションログ用の権限を付与。**セッション内容は `/ecs/<prefix>-exec`（保持365日）へ記録**する
       （クラスタの `execute_command_configuration` を `OVERRIDE`。手動操作の証跡、要件C-17）。
       実行イメージ（`amazoncorretto:25`）に psql は含まれないため、**SSMポートフォワードでローカルの psql を
       RDSへ繋ぐ**方式とした（手順書 §14.5 に手順。Session Manager plugin が必要）。
-  - [ ] production で `enable_ecs_exec = false` とするか（必要時のみ一時有効化）の運用判断。
+  - [x] production で `enable_ecs_exec = false` とするか → **決定・実装済み 2026-07-27**（§2.9）。
+        既定値を `environment` から導出し、production のみ `false`。明示指定で一時有効化できる。
 - [x] **アプリDBユーザーのプロビジョニング（最小権限）** — Flyway移行
       `V202607230001__create_app_runtime_role.sql`（`cf_app_rw`: DMLのみ + 将来テーブル自動付与、冪等）と
       ブートストラップSQL `infra/db/create-app-user.sql`（ログインユーザー、資格情報はGit外）を追加。
@@ -331,6 +335,89 @@ JITは「トークンさえ通れば利用者が増える」経路なので、�
 
 ---
 
+### 2.7 Outbox配送はアプリ内で確定（要判断B・**実装済み 2026-07-27**）
+
+**ADR-0008** として起票。設計書（基本設計 §8.1 BAT-006「SQSまたはアプリ内」、
+詳細設計 §9.1 BAT-003「SQS/内部Handler」）は**どちらも許容**しており、
+これは仕様違反の是正ではなく2案のどちらを正式構成とするかの決定だった。
+
+#### アプリ内配送を選んだ理由
+
+購読側は同一JVM内の `@EventListener` が3つだけ（`NotificationEventHandler` /
+`PaymentRequestedHandler` / `ProjectFailedHandler`）。詳細設計 §3 のモジュール構成にあった
+`app-worker`（Batch / SQS Worker）は **ADR-0001 で単一backendプロジェクトへ統合済み**なので、
+SQSを挟んでも「Worker → SQS → 同一アプリのポーラー → 同じ3ハンドラ」となり、
+プロセス分離という本来の利得が出ない。一方コストは、SDK依存・ポーラー実装・
+at-least-onceの重複対処・DLQ運用・ローカル用LocalStackが実在する。
+
+マルチインスタンスの懸念は §2.3 で解消済み（`FOR UPDATE SKIP LOCKED` の競合コンシューマ設計で、
+ADR-0003 により意図的に ShedLock 対象外）。
+
+#### 削除したもの
+
+| 対象 | 内容 |
+|---|---|
+| `infra/terraform/sqs.tf` | ファイルごと削除（`outbox` / `outbox_dlq`） |
+| `infra/terraform/iam.tf` | task role の `Sqs` statement |
+| `infra/terraform/ecs.tf` | `CF_OUTBOX_SQS_QUEUE_URL` と `TODO(question)` |
+| `infra/terraform/outputs.tf` | `outbox_queue_url` |
+| `infra/terraform/vpc_endpoints.tf` | `sqs` インターフェースエンドポイント |
+
+これで §2.3-(4)「渡しているが読まれていない変数」も解消した。
+`sqs` エンドポイントの削除は **要判断F（コスト）にも効く**（Interface エンドポイントは
+1つあたりAZ数分のENIと時間課金が発生する）。アプリ側のコード変更は無く、コメントのみ更新した。
+`OutboxDispatcher` インターフェースは残すので、将来の差し替え口は維持される。
+
+---
+
+### 2.8 メイン画像のブラウザ直PUT（§5.4・**実装済み 2026-07-27**）
+
+`MainImageUploader.tsx` は「発行 → （PUTせず）→ 完了」の順で呼んでおり、
+**dev以上の実S3では完了API（API-FL-002）の `headObject` が空振りして必ず失敗する**状態だった。
+
+単純に常時PUTすると、local/test のスタブが返す到達不能URL
+（`https://s3.stub.invalid/...`、RFC 6761 の予約TLD）へPUTしてローカルが壊れる。
+そこで**発行レスポンスに `uploadRequired` を追加**し、クライアントはこの値で分岐する。
+
+| 実装 | `uploadRequired` |
+|---|---|
+| `S3FileStorageAdapter`（dev以上） | `true` |
+| `StubFileStorageAdapter`（local/test） | `false` |
+
+URLの形（`.invalid` かどうか）で判定させないことを意図している。
+PUTの失敗（署名切れ・Content-Type不一致・通信断）は完了APIを呼ばずにエラー表示で止める。
+
+バケットのCORS（`s3.tf` の `aws_s3_bucket_cors_configuration`）は
+`PUT/GET/HEAD` 許可・`ETag` 公開で**既に設定済み**だったため追加変更は不要。
+
+契約変更に伴い `docs/api/openapi.yaml` をアプリから再生成し、
+`frontend/src/lib/generated/api.ts` を `npm run gen:api-types` で更新した
+（CIが生成漏れを検出するため）。レスポンスへの任意プロパティ追加なので
+`oasdiff breaking` は通る。
+
+---
+
+### 2.9 production の `enable_ecs_exec` 既定値（§2.1・**決定・実装済み 2026-07-27**）
+
+手順書 §14.5 が既に「production では `enable_ecs_exec = false` を基本とし、必要時だけ
+一時的に有効化して作業後に戻す」と定めていたのに、Terraform の既定は `true` のままだった。
+**既定値を `environment` から導出する**形にして、記述と実態を一致させた。
+
+```hcl
+# locals.tf
+enable_ecs_exec = var.enable_ecs_exec != null ? var.enable_ecs_exec : var.environment != "production"
+```
+
+- `var.enable_ecs_exec` は `default = null`（nullable）にし、明示指定があればそれを優先する
+- 無指定なら **production だけ `false`**、dev / staging は `true`
+- production で保守のため一時的に開けるときは明示的に `true` を渡し、作業後に戻す
+
+`false` のときはサービスの `enable_execute_command`、タスクロールの `ssmmessages` 系権限、
+Exec用ロググループのすべてが作られない（`ecs.tf` / `iam.tf` / `logs.tf` は
+`local.enable_ecs_exec` を参照するよう変更）。**経路の存在自体を平時は残さない。**
+
+---
+
 ## 3. 残タスク（優先度: 中）
 
 ### 3.1 SESテンプレートのAWS登録
@@ -415,7 +502,7 @@ JITは「トークンさえ通れば利用者が増える」経路なので、�
   SQS+DLQ / SESドメイン・DKIM / Cognito User Pool・Client / WAF / VPCエンドポイント。IAM・ECS環境変数へ配線。
   `terraform.yml` で fmt / init / validate（provider aws v5.100）。ドメイン/SESはvarでゲート。
   `apply` はAWS認証が必要なため手動運用（残 §2.1、`infra/terraform/README.md`）。
-- **ECS Exec（保守経路）** — `enable_ecs_exec`（既定true）でサービスの `enable_execute_command` +
+- **ECS Exec（保守経路）** — `enable_ecs_exec`（無指定なら production 以外で true）でサービスの `enable_execute_command` +
   タスクロールへ `ssmmessages` 4アクション + セッションログ権限。クラスタの `execute_command_configuration` を
   `OVERRIDE` にして `/ecs/<prefix>-exec`（365日）へセッションを記録（要件C-17）。
   Private配置RDSへはSSMポートフォワード経由でローカルの psql を使う（イメージに psql 非同梱のため）。
@@ -453,8 +540,10 @@ JITは「トークンさえ通れば利用者が増える」経路なので、�
 ### 5.4 既知の暫定実装（要フォロー）
 
 - **SCR-060/061（OPERATOR）**: 運用者向け検索API（支援検索/返金検索）を追加し、一覧・検索UIへ移行済み。
-- **メイン画像アップロード**: local/testはS3スタブ（発行時点で完了扱い）のため実PUTを行わない。
-  dev以上の実S3接続時はブラウザからの直接PUT追加が必要。
+- ~~**メイン画像アップロード**: dev以上の実S3接続時はブラウザからの直接PUT追加が必要~~
+  → **対応済み 2026-07-27**（§2.8）。発行レスポンスの `uploadRequired` で分岐し、
+  dev以上は実PUT、local/test のスタブ（到達不能URL）はPUTしない。
+  **実S3経路そのものの疎通確認は dev 環境構築後**（表B）。
 
 ### 5.5 その他
 
@@ -467,11 +556,11 @@ JITは「トークンさえ通れば利用者が増える」経路なので、�
 | # | 内容 | 影響・対応 |
 |---|---|---|
 | A | 監査アーカイブ（BAT-009）の実出力先（S3バケット・ストレージクラス・保持年数） | 現状はハッシュ算出のみのローカル実装。`LocalAuditArchiveAdapter` に `TODO(question)`。§2.1 Terraformと併せて確定 |
-| B | Outbox配送のSQS切替（現状 `InProcessOutboxDispatcher` のアプリ内配送） | マルチインスタンス構成時に必要。ADR候補（§2.1と関連） |
+| B | ~~Outbox配送のSQS切替~~ → **決定済み（2026-07-27）: アプリ内配送を正式構成とする。未使用のSQS資産は削除** | **ADR-0008** として起票。詳細は §2.7 |
 | C | ~~未登録Cognito Subjectの初回JIT自動登録の可否~~ → **決定済み（2026-07-27）: 許容する。ただしトークン受入条件を狭める** | **ADR-0007** として起票。`TODO(question)` は削除済み。詳細は §2.6 |
 | D | ~~ADR-BFF配置 / 決済非同期UI / Rich Text形式 の3件が未起票~~ → **起票済み** | ADR-0004（BFF配置）/ ADR-0005（決済非同期UI）/ ADR-0006（本文プレーンテキスト）。既定動作を追認する形で文書化 |
 | E | Cognito実User Poolでの結合確認 | 未実施（テストはlocal/testの開発用ヘッダー認証のみ）。dev環境構築時に実施 |
-| F | dev環境の稼働モードとコスト構成 | 常時稼働は月4.3〜5.0万円。Interface VPCエンドポイント（12 ENI、約1.9万円/月）の要否、`desired_count`、Container Insights、WAFの取捨で1.5〜2.0万円まで低減可。「都度 apply/destroy」運用なら数千円。予算責任者の決定が必要（手順書 §3） |
+| F | dev環境の稼働モードとコスト構成 | 常時稼働は月4.0〜4.6万円。Interface VPCエンドポイント（10 ENI、約1.6万円/月）の要否、`desired_count`、Container Insights、WAFの取捨で1.5〜2.0万円まで低減可。「都度 apply/destroy」運用なら数千円。予算責任者の決定が必要（手順書 §3） |
 | G | ~~GitHub OIDC の信頼条件~~ → **決定済み（2026-07-27）: `sub` を `environment:{dev,staging}` に限定。ブランチ限定と承認者は GitHub の Environment 保護で行う** | 実装済み。詳細は §2.5 |
 | H | ~~Swagger UI / OpenAPI spec / `/actuator/prometheus` の環境別公開可否~~ → **決定済み（2026-07-27）: ALB＋アプリの多層防御。Swagger UI は dev のみ残す** | 実装済み。詳細は §2.4 |
 

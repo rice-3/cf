@@ -18,4 +18,9 @@ locals {
 
   # 通知メールの送信元（CF_SES_FROM_ADDRESS）。明示指定 > ses_domain から導出 > アプリ既定と同じ無効ドメイン。
   ses_from_address = var.ses_from_address != "" ? var.ses_from_address : (var.ses_domain != "" ? "no-reply@${var.ses_domain}" : "no-reply@example.invalid")
+
+  # ECS Exec は「本番では常時開けない」を既定にする（手順書 §14.5）。
+  # 明示指定があればそれに従い、無指定なら production だけ false になる。
+  # 有効時はタスクへ対話シェルで入れるため、経路の存在自体を平時は残さない。
+  enable_ecs_exec = var.enable_ecs_exec != null ? var.enable_ecs_exec : var.environment != "production"
 }

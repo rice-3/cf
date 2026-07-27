@@ -53,6 +53,14 @@ data class IssueUploadResponse(
     val uploadUrl: String,
     val headers: Map<String, String>,
     val expiresAt: Instant,
+    /**
+     * `uploadUrl` へ実際にPUTしてから完了API（API-FL-002）を呼ぶ必要があるか。
+     *
+     * dev以上の実S3では常に `true`。local/test の教育用スタブは発行時点で完了扱いにするため
+     * `false` を返し、`uploadUrl` も到達不能な予約ドメインを指す。
+     * クライアントはこの値でPUTの要否を判断する（URLの形から推測しない）。
+     */
+    val uploadRequired: Boolean,
 )
 
 private fun IssueUploadResult.toResponse() = IssueUploadResponse(
@@ -60,6 +68,7 @@ private fun IssueUploadResult.toResponse() = IssueUploadResponse(
     uploadUrl = uploadUrl,
     headers = headers,
     expiresAt = expiresAt,
+    uploadRequired = uploadRequired,
 )
 
 data class CompleteUploadRequest(
