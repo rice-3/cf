@@ -2,7 +2,7 @@
 
 - 対象リポジトリ: `F:\11\CF`（GitHub: `https://github.com/rice-3/cf.git`）
 - 上位文書: 基本設計 BD-CF-001 v1.2 / 詳細設計 DD-CF-001 v1.2（`G:\マイドライブ\CF\`）
-- 更新日: 2026-07-27（§2.3 タスク定義⇄アプリ設定の突き合わせを実施。不整合2件を修正、要判断Hを起票）
+- 更新日: 2026-07-27（§2.3 突き合わせを実施し不整合2件を修正。§2.4 要判断H＝内部向けパスの外部遮断を実装）
 - 実装済み範囲の詳細は `ses_ai_ddd_implementation_status.md` を参照。
 - 本書は**残タスク**を主役とする。完了済みは §5 に要約のみ記載。
 
@@ -28,8 +28,9 @@
   **修正済み（§2.2、ローカルで fmt/validate 通過を確認）**。
 - **残るのはほぼAWS依存の運用基盤（監視アラートの実配線・実apply・SES登録）** と、少数の要判断事項・軽微なフォローアップ。
 - §2.3 のタスク定義⇄アプリ設定の突き合わせを実施し、**さらに2件の無言の不整合を検出・修正**
-  （SES設定セットが束縛されない / S3キー接頭辞が全環境 `local`）。あわせて production での
-  Swagger UI・`/actuator/prometheus` 無認証公開を**要判断H**として起票。
+  （SES設定セットが束縛されない / S3キー接頭辞が全環境 `local`）。
+- そこで見つかった「production でも Swagger UI・actuator が無認証公開される」問題は
+  **要判断H として決定・実装済み**（ALB＋アプリの多層防御、Swagger UI は dev のみ。§2.4）。
 - **進め方**: AWS契約・apply はローカルテスト完了後。それまでは早見表 A（AWS不要）のみを進める。
 
 ### 残タスク早見表
@@ -41,7 +42,7 @@ AWS要否で3分割する（A → B の順に進める）。
 | 優先 | 区分 | タスク | 節 |
 |---|---|---|---|
 | — | IaC/検証 | ~~タスク定義 ⇄ アプリ設定の突き合わせ~~ → **実施済み**（2件を修正、2件を要判断へ繰り上げ） | 2.3 |
-| 高 | セキュリティ | **要判断H: Swagger UI / OpenAPI spec / `/actuator/prometheus` の環境別公開可否**（現状すべてのプロファイルで無認証公開） | 6-H |
+| — | セキュリティ | ~~要判断H: Swagger UI / OpenAPI spec / actuator の外部公開~~ → **決定・実装済み**（ALB＋アプリの多層防御、Swagger UI は dev のみ） | 2.4 |
 | 中 | セキュリティ | 要判断G: GitHub OIDC の信頼条件を `repo:<owner>/<repo>:*`（全ブランチ）から `main` 等へ限定 | 6-G |
 | 中 | 認証 | 要判断C: 未登録Cognito SubjectのJIT自動登録の可否。分岐実装とテストはローカルで完結 | 6-C |
 | 中 | 設計/実装 | 要判断B: Outbox配送のSQS切替。ADR起票＋実装（ローカル検証はスタブ/LocalStack） | 6-B |
@@ -178,6 +179,55 @@ AWS要否で3分割する（A → B の順に進める）。
 | (4) | `CF_OUTBOX_SQS_QUEUE_URL` を読む実装が無い（Outbox は `InProcessOutboxDispatcher` のまま）。キューと task role の SQS 権限だけが存在し、「SQS 経由で配送されているつもり」になりうる | 要判断B の未決に起因。`ecs.tf` に `TODO(question)` を明記して可視化 |
 
 > 上記のうち再発防止として残す観点は §7 へ追記済み。
+
+---
+
+### 2.4 内部向けパスの外部遮断（要判断H・**実装済み 2026-07-27**）
+
+§2.3-(3) で検出した「production でも Swagger UI と actuator が無認証公開される」問題への対応。
+**ALB（ネットワーク層）とアプリ（設定層）の多層防御**とし、Swagger UI は **dev のみ残す**。
+
+| 層 | 対象 | 実装 |
+|---|---|---|
+| ALB | `/actuator`・`/actuator/*` | `aws_lb_listener_rule.block_actuator`（全環境・優先度100）で 404 固定応答 |
+| ALB | `/swagger-ui/*`・`/swagger-ui.html`・`/v3/api-docs*` | `aws_lb_listener_rule.block_api_docs`（`environment != "dev"` のみ・優先度110）で 404 固定応答 |
+| アプリ | springdoc | `ecs.tf` で `environment != "dev"` のとき `SPRINGDOC_API_DOCS_ENABLED=false` / `SPRINGDOC_SWAGGER_UI_ENABLED=false` |
+
+ルールは**実際に転送を行うリスナー**（HTTPS有効時は443、無効時は80）へ付ける。
+HTTPS有効時の80番は443へリダイレクトするだけなのでルールは不要。
+
+#### この設計が壊さないことの根拠（いずれも確認済み）
+
+| 懸念 | 結論 |
+|---|---|
+| ALBヘルスチェックが落ちないか | **落ちない**。ターゲットグループのヘルスチェックはロードバランサーノードからターゲットへ直接送られ、**リスナールールを経由しない** |
+| メトリクス収集が止まらないか | **止まらない**。ADOT/CW Agent は同一タスク内の `localhost` から `/actuator/prometheus` を取得する（§2.1）。`exposure.include` から `prometheus` を外す案は、サイドカーからも取得できなくなるため採らなかった |
+| フロントの型生成が壊れないか | **壊れない**。`frontend` はコミット済みの `docs/api/openapi.yaml` から生成する（`npm run gen:api-types`）。live の `/v3/api-docs` に依存しない |
+| CIのspec一致検証が壊れないか | **壊れない**。`OpenApiSpecIntegrationTest` は test プロファイルで動き、そこでは springdoc を無効化しない |
+
+#### 実装中に判明した副作用と、その修正
+
+springdoc を無効化すると `/v3/api-docs` は `SecurityConfig` の `permitAll` を通過した先で
+ハンドラが無く `NoResourceFoundException` になる。これが `GlobalExceptionHandler` の汎用
+ハンドラへ落ち、**404 ではなく 500 を返していた**（ローカル実測で確認）。
+
+外部スキャナが `/v3/api-docs` を叩くだけで 5xx アラート（`docs/ops/monitoring.md`）を
+誘発できてしまうため、`NoResourceFoundException` を 404 として扱うハンドラを追加した。
+
+#### 環境変数名の実測（推測で決めない）
+
+`springdoc.api-docs.enabled` の環境変数形は、ハイフンの扱いで
+`SPRINGDOC_APIDOCS_ENABLED` と `SPRINGDOC_API_DOCS_ENABLED` のどちらになるか紛らわしい。
+§2.3 がまさにこの種の取り違えを潰すタスクなので、**ローカルで実際に起動して確認した**。
+
+| 条件 | `/v3/api-docs` | `/swagger-ui.html` | `/actuator/prometheus` |
+|---|---|---|---|
+| `SPRINGDOC_API_DOCS_ENABLED=false` / `SPRINGDOC_SWAGGER_UI_ENABLED=false` | 404 | 404 | 200 |
+| 対照（環境変数なし） | 200 | 302（`/swagger-ui/index.html`へ） | 200 |
+
+`SPRINGDOC_API_DOCS_ENABLED` 形で束縛される（`@ConditionalOnProperty` 経由のため
+ハイフンをアンダースコアにした形も解決される）。prometheus はどちらでも 200 のままで、
+サイドカー収集に影響しないことも併せて確認した。
 
 ---
 
@@ -323,7 +373,7 @@ AWS要否で3分割する（A → B の順に進める）。
 | E | Cognito実User Poolでの結合確認 | 未実施（テストはlocal/testの開発用ヘッダー認証のみ）。dev環境構築時に実施 |
 | F | dev環境の稼働モードとコスト構成 | 常時稼働は月4.3〜5.0万円。Interface VPCエンドポイント（12 ENI、約1.9万円/月）の要否、`desired_count`、Container Insights、WAFの取捨で1.5〜2.0万円まで低減可。「都度 apply/destroy」運用なら数千円。予算責任者の決定が必要（手順書 §3） |
 | G | GitHub OIDC の信頼条件 | `oidc.tf` の `sub` は `repo:<owner>/<repo>:*` で全ブランチ許可。任意ブランチからデプロイ可能なため、`ref:refs/heads/main` 等への限定を検討（手順書 §20.4） |
-| H | Swagger UI / OpenAPI spec / `/actuator/prometheus` の環境別公開可否 | `SecurityConfig` で `/swagger-ui/**`・`/v3/api-docs/**`・`/actuator/prometheus`・`/actuator/info` を `permitAll`、ALB は全パスをターゲットグループへ転送する。`application-{dev,staging,production}.yml` が存在せず `ecs.tf` にも無効化用の環境変数が無いため、**apply すると production でも無認証で公開される**。教育用途として許容するか、環境変数（`SPRINGDOC_API_DOCS_ENABLED` / `SPRINGDOC_SWAGGER_UI_ENABLED` / `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE`）で環境別に閉じるかの判断が要る。prometheus は ADOT/CW Agent サイドカー（§2.1）が VPC 内から取得する構成なので、外部公開は本来不要（§2.3-(3) で検出） |
+| H | ~~Swagger UI / OpenAPI spec / `/actuator/prometheus` の環境別公開可否~~ → **決定済み（2026-07-27）: ALB＋アプリの多層防御。Swagger UI は dev のみ残す** | 実装済み。詳細は §2.4 |
 
 > 解決済みの要判断: 起案者向け通知の宛先解決（ADR-0002）、冪等記録削除バッチ（BAT-010）、
 > バッチ多重起動防止（ADR-0003: ShedLock）、BFF配置（ADR-0004）、決済非同期UI（ADR-0005）、
@@ -349,3 +399,6 @@ AWS要否で3分割する（A → B の順に進める）。
 | 環境変数は「起動失敗」より「無言の既定値」が危険 | 束縛されない環境変数は起動を止めない。`@ConfigurationProperties` の既定値やプレースホルダの既定に落ちて**動いているように見える**（§2.3-(1) SES設定セットがnull、(2) S3キー接頭辞が全環境 `local`）。`ecs.tf` に変数を足したら、必ず束縛先のプロパティ名まで辿って確認する |
 | プロファイル別ファイルが無い前提 | `application-{dev,staging,production}.yml` は存在せず、dev以上は `application.yml` ＋ ECS環境変数だけで構成される。「本番では無効化する」と `application.yml` のコメントに書いてある設定（springdoc等）は、**環境変数で明示的に上書きしない限り有効のまま**（§2.3-(3)） |
 | 渡しているが読まれていない変数 | `CF_OUTBOX_SQS_QUEUE_URL` のように、IaC側だけ先に用意して実装が追随していない変数がある。IaCの存在をもって機能が有効と判断しない（§2.3-(4)） |
+| `permitAll` のパスで実体が消えると500 | `permitAll` はセキュリティを通過させるだけで、その先にハンドラが無ければ `NoResourceFoundException` になる。汎用ハンドラに落ちると**404ではなく500**になり、外部スキャンだけで5xxアラートを誘発できる。`GlobalExceptionHandler` に404ハンドラを追加済み（§2.4） |
+| ALBヘルスチェックとリスナールール | ターゲットグループのヘルスチェックは**リスナールールを経由しない**（LBノードからターゲットへ直接）。`/actuator/*` をリスナールールで404にしても `/actuator/health` の死活監視は生きる（§2.4） |
+| ハイフンを含む設定キーの環境変数名 | `springdoc.api-docs.enabled` のようにハイフンを含むキーは、環境変数形が `SPRINGDOC_APIDOCS_ENABLED` か `SPRINGDOC_API_DOCS_ENABLED` か紛らわしい。**推測せず実際に起動して応答で確かめる**（§2.4 に実測表） |

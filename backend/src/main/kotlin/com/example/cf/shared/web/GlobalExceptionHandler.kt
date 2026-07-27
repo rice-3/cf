@@ -86,6 +86,20 @@ class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException::class)
     fun handleNotFound(e: ResourceNotFoundException, request: HttpServletRequest): ProblemDetail = problem(HttpStatus.NOT_FOUND, e.errorCode, "対象が見つかりません。", request)
 
+    /**
+     * ハンドラもリソースも存在しないパスへの到達（§12.4）。
+     *
+     * `permitAll` のパスで実体が無い場合にここへ来る。例えば production で springdoc を
+     * 無効化すると `/v3/api-docs` は SecurityConfig を通過した先で解決できず本例外になる。
+     * 汎用ハンドラに落とすと 500 になり、外部からのスキャンだけで 5xx アラート
+     * （`docs/ops/monitoring.md`）を誘発できてしまうため、404 として扱う。
+     */
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException::class)
+    fun handleNoResource(
+        e: org.springframework.web.servlet.resource.NoResourceFoundException,
+        request: HttpServletRequest,
+    ): ProblemDetail = problem(HttpStatus.NOT_FOUND, "NOT_FOUND", "対象が見つかりません。", request)
+
     @ExceptionHandler(ConflictException::class)
     fun handleConflict(e: ConflictException, request: HttpServletRequest): ProblemDetail = problem(HttpStatus.CONFLICT, e.errorCode, e.message ?: "競合が発生しました。", request)
 

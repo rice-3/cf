@@ -19,12 +19,13 @@ spring:
           issuer-uri: ${COGNITO_ISSUER:}
 
 # OpenAPI仕様（springdoc、§6.15）。生成specを決定論的にするためキー順を安定化する。
-# 本番で公開したくない場合は api-docs.enabled=false（SecurityConfigの許可も無効化される）。
+# dev 以外（staging / production）は ecs.tf が SPRINGDOC_API_DOCS_ENABLED=false /
+# SPRINGDOC_SWAGGER_UI_ENABLED=false を注入して無効化する（要判断H）。ALB側でも遮断している。
 springdoc:
   writer-with-order-by-keys: true
   api-docs:
     enabled: true
-  # Swagger UI（/swagger-ui.html）。本番で隠す場合は enabled: false（SecurityConfigの許可も実質無効化）。
+  # Swagger UI（/swagger-ui.html）
   swagger-ui:
     enabled: true
     path: /swagger-ui.html

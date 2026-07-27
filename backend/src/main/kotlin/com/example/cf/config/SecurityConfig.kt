@@ -69,12 +69,13 @@ private fun HttpSecurity.applyCommonRules(): HttpSecurity = this
             .requestMatchers(HttpMethod.GET, "/api/v1/projects", "/api/v1/projects/*").permitAll()
             .requestMatchers("/actuator/health/**", "/actuator/health").permitAll()
             // メトリクス収集エンドポイント（詳細設計 §12.5/§9.3）。
-            // 本番ではALBがこのパスを外部公開しない前提（VPC内のCollector/CloudWatch Agentのみ到達）。
-            // 公開したくない場合は management.endpoints.web.exposure.include から prometheus を除く。
+            // 外部からの到達はALBのリスナールール（alb.tf の block_actuator）が全環境で遮断する。
+            // ここを permitAll のままにしているのはVPC内（サイドカーCollector）からの経路を残すため。
+            // exposure.include から prometheus を除くとサイドカーからも取れなくなるので行わない。
             .requestMatchers("/actuator/prometheus", "/actuator/info").permitAll()
-            // OpenAPI仕様（springdoc）。本番で公開したくない場合は springdoc.api-docs.enabled=false で無効化する。
+            // OpenAPI仕様 / Swagger UI（springdoc）。dev のみ外部公開する（要判断H）。
+            // staging/production は ALB（block_api_docs）とアプリ（SPRINGDOC_*_ENABLED=false）の両方で塞ぐ。
             .requestMatchers("/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
-            // Swagger UI（springdoc）。本番で隠す場合は springdoc.swagger-ui.enabled=false（下記application.yml）。
             .requestMatchers("/swagger-ui/**", "/swagger-ui.html").permitAll()
             // エラー応答の内部ディスパッチ。認証必須にするとProblem Detailsの本文が失われる（§6.3）
             .requestMatchers("/error").permitAll()

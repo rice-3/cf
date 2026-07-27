@@ -82,6 +82,25 @@ DataSource は **Spring Boot の Relaxed Binding に従う名前**で注入す�
 `ecs.tf` に変数を足すときは、必ず `application.yml` 側の受け口も併せて用意すること
 （束縛されない変数は起動を止めず、既定値のまま無言で動く）。
 
+`environment` が `dev` 以外のときは、上記に加えて
+`SPRINGDOC_API_DOCS_ENABLED=false` / `SPRINGDOC_SWAGGER_UI_ENABLED=false` を注入する（要判断H）。
+
+### 内部向けパスの外部遮断（要判断H）
+
+`alb.tf` のリスナールールで、インターネットからの到達を塞ぐ。
+
+| ルール | 対象 | 適用範囲 |
+|---|---|---|
+| `block_actuator`（優先度100） | `/actuator`・`/actuator/*` | 全環境 |
+| `block_api_docs`（優先度110） | `/swagger-ui/*`・`/swagger-ui.html`・`/v3/api-docs*` | `environment != "dev"` |
+
+ルールは**実際に転送を行うリスナー**（HTTPS有効時は443、無効時は80）に付く。
+
+- **ヘルスチェックは影響を受けない**。ターゲットグループのヘルスチェックはロードバランサー
+  ノードからターゲットへ直接送られ、リスナールールを経由しない。
+- **メトリクス収集も影響を受けない**。Collectorサイドカーは同一タスク内の `localhost` から
+  `/actuator/prometheus` を取得する。
+
 > Flyway 用の接続は配線済み。現時点では `SPRING_DATASOURCE_*` もオーナーを指しているため実質同一接続であり、
 > 挙動は変わらない。実行時接続を `cf_app_login` へ切り替える手順は後述（DBロール作成が先）。
 

@@ -47,7 +47,7 @@ resource "aws_ecs_task_definition" "backend" {
       ]
       # 変数名は Spring Boot の Relaxed Binding に合わせる（SPRING_DATASOURCE_URL → spring.datasource.url）。
       # `DB_URL` のような独自名は application-{profile}.yml で明示しない限り束縛されず、起動に失敗する。
-      environment = [
+      environment = concat([
         { name = "SPRING_PROFILES_ACTIVE", value = var.environment },
         { name = "SPRING_DATASOURCE_URL", value = "jdbc:postgresql://${aws_db_instance.main.address}:5432/${var.db_name}" },
         { name = "SPRING_DATASOURCE_USERNAME", value = var.db_username },
@@ -66,7 +66,14 @@ resource "aws_ecs_task_definition" "backend" {
         # 送信元。ses_domain / ses_from_address 未設定時はアプリ既定と同じ無効ドメインが入る（送信は失敗する）
         { name = "CF_SES_FROM_ADDRESS", value = local.ses_from_address },
         { name = "AWS_REGION", value = var.aws_region },
-      ]
+        ],
+        # Swagger UI / OpenAPI spec は dev 以外では配信自体を止める（要判断H・多層防御の内側）。
+        # ALB のリスナールール（alb.tf）が外側で塞ぐが、VPC内から直接タスクへ到達する経路も
+        # あるため、アプリ側でも無効化する。ローカル実測で束縛を確認済み（2026-07-27）。
+        var.environment == "dev" ? [] : [
+          { name = "SPRINGDOC_API_DOCS_ENABLED", value = "false" },
+          { name = "SPRINGDOC_SWAGGER_UI_ENABLED", value = "false" },
+      ])
       secrets = [
         # RDS管理のマスターシークレット(JSON)の password キーを注入
         # 接続分離の適用時は、この行だけ aws_secretsmanager_secret.app_login.arn へ差し替える（README参照）。

@@ -740,16 +740,30 @@ aws logs tail /ecs/cftraining-dev-backend --since 10m --follow
 
 ### 16.2 アプリ
 
+**`/actuator/**` は ALB のリスナールールで遮断している**（要判断H・§2.4）。ALB 経由では
+404 が返るのが正常で、アプリの異常ではない。稼働確認は ALB のターゲットヘルス（§16.1）で行う。
+アプリのヘルス応答そのものを見たい場合は ECS Exec のポートフォワード（§14.5）でタスクへ直接繋ぐ。
+
 ```powershell
 $Alb = terraform -chdir=infra/terraform output -raw alb_dns_name
-Invoke-RestMethod "http://$Alb/actuator/health"          # {"status":"UP"}
-Invoke-RestMethod "http://$Alb/actuator/health/readiness"
-Invoke-RestMethod "http://$Alb/v3/api-docs.yaml" | Select-Object -First 5
+
+# 遮断されていることの確認（いずれも 404 が正常）
+(Invoke-WebRequest "http://$Alb/actuator/health" -SkipHttpErrorCheck).StatusCode   # 404
+(Invoke-WebRequest "http://$Alb/actuator/prometheus" -SkipHttpErrorCheck).StatusCode # 404
+
+# 業務APIが応答すること（認証なしなので 401 が正常）
+(Invoke-WebRequest "http://$Alb/api/v1/me/supports" -SkipHttpErrorCheck).StatusCode  # 401
+
+# Swagger UI は dev のみ 200。staging/production は 404
+(Invoke-WebRequest "http://$Alb/v3/api-docs.yaml" -SkipHttpErrorCheck).StatusCode
+
+# アプリのヘルス本体を見る場合（§14.5 のポートフォワードを張ってから）
+# Invoke-RestMethod "http://localhost:8080/actuator/health"   # {"status":"UP"}
 ```
 
 ### 16.3 機能チェックリスト
 
-- [ ] `/actuator/health` が UP を返す
+- [ ] ALB のターゲットヘルスが `healthy`（§16.1。`/actuator/health` はALBでは404が正常）
 - [ ] Flyway 移行が完了している（ログに `Successfully applied` / `flyway_schema_history` 確認）
 - [ ] 認証なしの業務 API が 401 になる（`dev` は OIDC Resource Server）
 - [ ] Cognito でユーザー登録・メール検証・ログインができる
@@ -865,6 +879,9 @@ state バケットと DynamoDB テーブルだけが Terraform 管理外で残�
 - ECS SG が ALB SG からの 8080 を許可しているか
 - 起動が遅い → `health_check_grace_period_seconds`（§12.3）
 - Spring Security で `/actuator/health` が 401 になっていないか
+- **`/actuator/*` を遮断するリスナールール（要判断H）は原因ではない**。ターゲットグループの
+  ヘルスチェックはロードバランサーノードからターゲットへ直接送られ、リスナールールを
+  経由しないため。ブラウザから `http://<ALB>/actuator/health` が404でも異常ではない
 
 ### 20.3 RDS へ接続できない
 

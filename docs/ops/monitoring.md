@@ -9,15 +9,21 @@
 
 | エンドポイント | 用途 | 認可 |
 |---|---|---|
-| `/actuator/health` / `/actuator/health/{liveness,readiness}` | ヘルスチェック（ECS/ALB） | 公開 |
-| `/actuator/prometheus` | メトリクススクレイプ | 公開（下記の注意） |
+| `/actuator/health` / `/actuator/health/{liveness,readiness}` | ヘルスチェック（ECS/ALB） | アプリ内は公開・ALBで遮断 |
+| `/actuator/prometheus` | メトリクススクレイプ | アプリ内は公開・ALBで遮断 |
 | `/actuator/metrics` | 個別メトリクス参照（デバッグ） | 要認証 |
-| `/actuator/info` | ビルド情報 | 公開 |
+| `/actuator/info` | ビルド情報 | アプリ内は公開・ALBで遮断 |
 
-> **本番でのセキュリティ**: `/actuator/prometheus` は認証なしで公開している。メトリクス本文に機密は
-> 含めていないが、ALB のリスナールールで `/actuator/**` を**外部公開しない**こと（VPC内の
-> Collector / CloudWatch Agent のみが到達する構成）。完全に無効化する場合は
-> `management.endpoints.web.exposure.include` から `prometheus` を除外する。
+> **外部からの到達は ALB で遮断済み**（要判断H・2026-07-27）。`aws_lb_listener_rule.block_actuator`
+> が `/actuator`・`/actuator/*` に404を固定応答するため、インターネットからは到達しない。
+> アプリ側を `permitAll` のままにしているのは、**VPC内からの到達経路を残すため**である。
+>
+> - **ヘルスチェックは影響を受けない**。ターゲットグループのヘルスチェックはロードバランサー
+>   ノードからターゲットへ直接送られ、リスナールールを経由しない。
+> - **スクレイプも影響を受けない**。Collector / CloudWatch Agent は同一タスク内の
+>   `localhost:8080` から取得する（サイドカー構成）。
+> - `management.endpoints.web.exposure.include` から `prometheus` を除外する案は**採らない**。
+>   サイドカーからも取得できなくなり監視が止まるため。
 
 ## 2. メトリクスカタログ
 

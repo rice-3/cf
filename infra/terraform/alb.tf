@@ -68,3 +68,62 @@ resource "aws_lb_listener" "https" {
     target_group_arn = aws_lb_target_group.backend.arn
   }
 }
+
+# 内部向けパスの外部遮断（要判断H）。
+#
+# 実際に転送を行うリスナーへ付ける。HTTPS有効時のHTTP:80は443へリダイレクトするだけなので
+# ルールは不要（リダイレクト先の443側で評価される）。
+#
+# ヘルスチェックへの影響は無い: ターゲットグループのヘルスチェックはロードバランサーノードから
+# ターゲットへ直接送られ、リスナールールを経由しない。
+locals {
+  serving_listener_arn = local.enable_https ? aws_lb_listener.https[0].arn : aws_lb_listener.http.arn
+}
+
+# actuator は全環境で外部に出さない。
+# Prometheusメトリクスは同一タスク内のCollectorサイドカーが localhost から取得する構成のため
+# （§2.1）、外部公開を止めてもメトリクスパイプラインは動く。
+resource "aws_lb_listener_rule" "block_actuator" {
+  listener_arn = local.serving_listener_arn
+  priority     = 100
+
+  action {
+    type = "fixed-response"
+
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "Not Found"
+      status_code  = "404"
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/actuator", "/actuator/*"]
+    }
+  }
+}
+
+# Swagger UI / OpenAPI spec は dev でのみ外部から参照できるようにする（要判断H）。
+# staging / production ではこのルールに加えアプリ側でも springdoc を無効化する（ecs.tf）。
+resource "aws_lb_listener_rule" "block_api_docs" {
+  count        = var.environment == "dev" ? 0 : 1
+  listener_arn = local.serving_listener_arn
+  priority     = 110
+
+  action {
+    type = "fixed-response"
+
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "Not Found"
+      status_code  = "404"
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/swagger-ui/*", "/swagger-ui.html", "/v3/api-docs*"]
+    }
+  }
+}
