@@ -54,6 +54,11 @@ output "outbox_queue_url" {
   value       = aws_sqs_queue.outbox.url
 }
 
+output "app_login_secret_id" {
+  description = "アプリ実行時DBユーザー cf_app_login のパスワード格納先（値は apply 後に手動投入）"
+  value       = aws_secretsmanager_secret.app_login.name
+}
+
 output "cognito_user_pool_id" {
   value = aws_cognito_user_pool.main.id
 }

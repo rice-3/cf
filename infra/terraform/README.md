@@ -34,6 +34,9 @@
 | `domain_name` | `""` | 設定時にACM証明書 + HTTPS(443) + 80→443リダイレクトを有効化 |
 | `route53_zone_id` | `""` | ACMのDNS検証レコードを自動作成（未設定なら `acm_dns_validation_records` を手動登録） |
 | `ses_domain` | `""` | SES送信ドメインID・DKIMを作成（`ses_dkim_tokens` をDNSへ登録して検証） |
+| `ses_from_address` | `""` | 通知メール送信元（`CF_SES_FROM_ADDRESS`）。空なら `no-reply@<ses_domain>` を導出。両方空は無効ドメインのまま |
+| `health_check_grace_period_seconds` | `180` | ECSサービスがALBヘルスチェックを無視する起動猶予（Spring Boot起動+Flyway移行の所要時間） |
+| `enable_ecs_exec` | `true` | ECS Exec（SSMセッション/ポートフォワード）。Private配置RDSへの保守経路。productionでは原則 `false` |
 | `enable_waf` | `true` | ALBへWAFを関連付け |
 | `waf_rate_limit` | `2000` | レートベースルールの1IP/5分上限 |
 | `cognito_callback_urls` / `cognito_logout_urls` | localhost | Cognito App Client のOIDC URL |
@@ -58,6 +61,23 @@ cp terraform.tfvars.example terraform.tfvars   # 値を編集
 terraform plan
 terraform apply
 ```
+
+### アプリへ渡す環境変数（`ecs.tf`）
+
+DataSource は **Spring Boot の Relaxed Binding に従う名前**で注入する。`DB_URL` のような独自名は
+`application-{profile}.yml` で `${DB_URL}` と明示しない限り束縛されず、起動時に DataSource 解決が失敗する。
+
+| 環境変数 | 供給元 |
+|---|---|
+| `SPRING_DATASOURCE_URL` / `SPRING_DATASOURCE_USERNAME` | Terraform（RDSエンドポイント / `db_username`） |
+| `SPRING_DATASOURCE_PASSWORD` | Secrets Manager（RDS管理シークレットの `password` キー） |
+| `SPRING_FLYWAY_USER` | Terraform（`db_username` = オーナー。移行は常にオーナーが実行する） |
+| `SPRING_FLYWAY_PASSWORD` | Secrets Manager（RDS管理シークレットの `password` キー） |
+| `COGNITO_ISSUER` / `CF_FILE_BUCKET` / `CF_OUTBOX_SQS_QUEUE_URL` / `CF_SES_CONFIGURATION_SET` / `CF_SES_FROM_ADDRESS` / `AWS_REGION` | Terraform |
+| `CF_PAYMENT_WEBHOOK_SECRET` | Secrets Manager（値は apply 後に手動投入） |
+
+> Flyway 用の接続は配線済み。現時点では `SPRING_DATASOURCE_*` もオーナーを指しているため実質同一接続であり、
+> 挙動は変わらない。実行時接続を `cf_app_login` へ切り替える手順は後述（DBロール作成が先）。
 
 ## CDとの連携
 
@@ -96,7 +116,33 @@ Terraformの `postgresql` provider はDB到達性が必要で `validate`/CIで�
      -v app_user=cf_app_login -v app_password="$(openssl rand -base64 24)" \
      -f infra/db/create-app-user.sql
    ```
-   生成パスワードは Secrets Manager に保存する。
+   生成パスワードは Secrets Manager の `<prefix>/app-login-password`
+   （`aws_secretsmanager_secret.app_login`、apply で作成済み・値は空）へ投入する:
+
+   ```bash
+   aws secretsmanager put-secret-value \
+     --secret-id "$(terraform output -raw app_login_secret_id)" \
+     --secret-string '<生成パスワード>'
+   ```
+
+   RDSは Private サブネット・`publicly_accessible=false` のため、ローカルから直接は接続できない。
+   `enable_ecs_exec = true`（既定）なら **SSMポートフォワード**で経路を作る（実行中のECSタスクを踏み台にする。
+   コンテナイメージに psql は含まれないため、psql はローカルで動かす）:
+
+   ```bash
+   TASK=$(aws ecs list-tasks --cluster <cluster> --service-name <service> --query "taskArns[0]" --output text)
+   RUNTIME=$(aws ecs describe-tasks --cluster <cluster> --tasks "$TASK" \
+     --query "tasks[0].containers[0].runtimeId" --output text)
+
+   aws ssm start-session \
+     --target "ecs:<cluster>_$(basename "$TASK")_${RUNTIME}" \
+     --document-name AWS-StartPortForwardingSessionToRemoteHost \
+     --parameters '{"host":["<rds-endpoint>"],"portNumber":["5432"],"localPortNumber":["15432"]}'
+   # 別ターミナルで psql -h localhost -p 15432 -U cf_app -d cf
+   ```
+
+   ローカルに **Session Manager plugin** が必要。セッション内容は `/ecs/<prefix>-exec` ロググループへ
+   記録される（手動操作の証跡、要件C-17）。
 
 ### アプリ側の接続分離（本番）
 
@@ -104,6 +150,19 @@ Terraformの `postgresql` provider はDB到達性が必要で `validate`/CIで�
 
 - `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` = `cf_app_login`（最小権限、実行時）
 - `SPRING_FLYWAY_USER` / `SPRING_FLYWAY_PASSWORD` = `cf_app`（オーナー、移行時）
+
+Flyway 側（`SPRING_FLYWAY_USER` / `SPRING_FLYWAY_PASSWORD`）と Secret の器
+（`aws_secretsmanager_secret.app_login`）・IAM 参照権限は **配線済み**。現状は `SPRING_DATASOURCE_*` も
+オーナーを指すため実質単一接続で、挙動は分離前と同じ。
+
+**残りは切り替えのみ**。DBロールが実在しない状態で先に切り替えるとアプリが起動できないため、順序を守る:
+
+1. Flyway 移行 `V202607230001`（`cf_app_rw` 作成）が適用済みであること
+2. 上記手順で `cf_app_login` を作成し、パスワードを `app_login_secret_id` の Secret へ投入
+3. `ecs.tf` を 2 行だけ変更して apply
+   - `SPRING_DATASOURCE_USERNAME` の `value` を `cf_app_login` へ
+   - `SPRING_DATASOURCE_PASSWORD` の `valueFrom` を `aws_secretsmanager_secret.app_login.arn` へ
+4. タスクが起動し `/actuator/health` が UP になることを確認（失敗時は 3 を戻して即 apply）
 
 > local/test プロファイルは簡便のため単一ユーザー（`cf_app`）のままとし、分離は dev 以上で適用する。
 > 上記モデルはローカルDB（docker compose）で検証済み: `cf_app_login` は SELECT/INSERT/UPDATE/DELETE 可、

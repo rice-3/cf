@@ -5,6 +5,21 @@ resource "aws_ecs_cluster" "main" {
     name  = "containerInsights"
     value = "enabled" # メトリクス（基本設計 §11.4）
   }
+
+  # ECS Exec のセッション内容をCloudWatchへ記録する（手動操作は監査対象、要件C-17）。
+  dynamic "configuration" {
+    for_each = var.enable_ecs_exec ? [1] : []
+
+    content {
+      execute_command_configuration {
+        logging = "OVERRIDE"
+
+        log_configuration {
+          cloud_watch_log_group_name = aws_cloudwatch_log_group.ecs_exec[0].name
+        }
+      }
+    }
+  }
 }
 
 locals {
@@ -30,19 +45,28 @@ resource "aws_ecs_task_definition" "backend" {
       portMappings = [
         { containerPort = var.container_port, protocol = "tcp" }
       ]
+      # 変数名は Spring Boot の Relaxed Binding に合わせる（SPRING_DATASOURCE_URL → spring.datasource.url）。
+      # `DB_URL` のような独自名は application-{profile}.yml で明示しない限り束縛されず、起動に失敗する。
       environment = [
         { name = "SPRING_PROFILES_ACTIVE", value = var.environment },
-        { name = "DB_URL", value = "jdbc:postgresql://${aws_db_instance.main.address}:5432/${var.db_name}" },
-        { name = "DB_USERNAME", value = var.db_username },
+        { name = "SPRING_DATASOURCE_URL", value = "jdbc:postgresql://${aws_db_instance.main.address}:5432/${var.db_name}" },
+        { name = "SPRING_DATASOURCE_USERNAME", value = var.db_username },
+        # 移行(Flyway)はオーナーで実行する。実行時接続を cf_app_login へ分離した後も
+        # DDLはオーナーが持つため、ここは常に db_username（= RDSマスター）を指す。
+        { name = "SPRING_FLYWAY_USER", value = var.db_username },
         { name = "COGNITO_ISSUER", value = local.cognito_issuer },
         { name = "CF_FILE_BUCKET", value = aws_s3_bucket.files.bucket },
         { name = "CF_OUTBOX_SQS_QUEUE_URL", value = aws_sqs_queue.outbox.url },
         { name = "CF_SES_CONFIGURATION_SET", value = aws_sesv2_configuration_set.main.configuration_set_name },
+        # 送信元。ses_domain / ses_from_address 未設定時はアプリ既定と同じ無効ドメインが入る（送信は失敗する）
+        { name = "CF_SES_FROM_ADDRESS", value = local.ses_from_address },
         { name = "AWS_REGION", value = var.aws_region },
       ]
       secrets = [
         # RDS管理のマスターシークレット(JSON)の password キーを注入
-        { name = "DB_PASSWORD", valueFrom = "${aws_db_instance.main.master_user_secret[0].secret_arn}:password::" },
+        # 接続分離の適用時は、この行だけ aws_secretsmanager_secret.app_login.arn へ差し替える（README参照）。
+        { name = "SPRING_DATASOURCE_PASSWORD", valueFrom = "${aws_db_instance.main.master_user_secret[0].secret_arn}:password::" },
+        { name = "SPRING_FLYWAY_PASSWORD", valueFrom = "${aws_db_instance.main.master_user_secret[0].secret_arn}:password::" },
         { name = "CF_PAYMENT_WEBHOOK_SECRET", valueFrom = aws_secretsmanager_secret.payment_webhook_secret.arn },
       ]
       logConfiguration = {
@@ -63,6 +87,13 @@ resource "aws_ecs_service" "backend" {
   task_definition = aws_ecs_task_definition.backend.arn
   desired_count   = var.desired_count
   launch_type     = "FARGATE"
+
+  # 起動〜Flyway移行の間にALBのヘルスチェック（30s × unhealthy 3回 ≒ 90秒）で
+  # 落とされないための猶予。既定0のままだと起動途中のタスクが置き換えループに入る。
+  health_check_grace_period_seconds = var.health_check_grace_period_seconds
+
+  # Private配置のRDSへの保守経路（SSMポートフォワード）。実行にはIAM側の ecs:ExecuteCommand も必要。
+  enable_execute_command = var.enable_ecs_exec
 
   network_configuration {
     subnets         = aws_subnet.private[*].id

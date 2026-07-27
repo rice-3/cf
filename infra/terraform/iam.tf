@@ -19,12 +19,15 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_managed" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# 起動時にSecrets Managerの値を注入するための読み取り権限
+# 起動時にSecrets Managerの値を注入するための読み取り権限。
+# app_login は接続分離の切り替え時に SPRING_DATASOURCE_PASSWORD として注入する。値の投入前でも
+# 参照権限だけ先に付けておく（タスク定義から参照し始めた時点で権限不足にならないようにするため）。
 data "aws_iam_policy_document" "ecs_execution_secrets" {
   statement {
     actions = ["secretsmanager:GetSecretValue"]
     resources = [
       aws_secretsmanager_secret.payment_webhook_secret.arn,
+      aws_secretsmanager_secret.app_login.arn,
       aws_db_instance.main.master_user_secret[0].secret_arn,
     ]
   }
@@ -74,6 +77,48 @@ data "aws_iam_policy_document" "ecs_task" {
       "sqs:GetQueueAttributes",
     ]
     resources = [aws_sqs_queue.outbox.arn, aws_sqs_queue.outbox_dlq.arn]
+  }
+
+  # ECS Exec: タスク内のSSMエージェントがチャネルを確立するために必要（リソース指定不可）。
+  dynamic "statement" {
+    for_each = var.enable_ecs_exec ? [1] : []
+
+    content {
+      sid = "EcsExecSsmMessages"
+      actions = [
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel",
+      ]
+      resources = ["*"]
+    }
+  }
+
+  # ECS Exec: セッションログ出力先の探索（APIがリソース指定に対応しない）。
+  dynamic "statement" {
+    for_each = var.enable_ecs_exec ? [1] : []
+
+    content {
+      sid       = "EcsExecLogGroupDiscovery"
+      actions   = ["logs:DescribeLogGroups"]
+      resources = ["*"]
+    }
+  }
+
+  # ECS Exec: セッションログの書き込み（専用ロググループのみ）。
+  dynamic "statement" {
+    for_each = var.enable_ecs_exec ? [1] : []
+
+    content {
+      sid = "EcsExecSessionLogs"
+      actions = [
+        "logs:CreateLogStream",
+        "logs:DescribeLogStreams",
+        "logs:PutLogEvents",
+      ]
+      resources = ["${aws_cloudwatch_log_group.ecs_exec[0].arn}:*"]
+    }
   }
 }
 

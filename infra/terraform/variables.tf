@@ -45,6 +45,18 @@ variable "desired_count" {
   default     = 2
 }
 
+variable "enable_ecs_exec" {
+  description = "ECS Exec（SSM経由のセッション/ポートフォワード）を有効化するか。Private配置のRDSへの保守経路として使う。操作は監査ログへ記録される。productionでは原則 false（必要時のみ一時有効化）。"
+  type        = bool
+  default     = true
+}
+
+variable "health_check_grace_period_seconds" {
+  description = "ECSサービスがALBヘルスチェックを無視する起動猶予（秒）。Spring Boot起動 + Flyway移行の所要時間を見込む。"
+  type        = number
+  default     = 180
+}
+
 variable "task_cpu" {
   description = "Fargateタスクの CPU ユニット"
   type        = string
@@ -109,6 +121,12 @@ variable "route53_zone_id" {
 
 variable "ses_domain" {
   description = "SES送信ドメイン（例: example.com）。設定するとSESドメインID・DKIMを作成する。空なら作成しない。"
+  type        = string
+  default     = ""
+}
+
+variable "ses_from_address" {
+  description = "通知メールの送信元（CF_SES_FROM_ADDRESS）。空なら ses_domain から no-reply@<domain> を導出する。両方空ならアプリ既定と同じ無効ドメインになり SES送信は失敗する。"
   type        = string
   default     = ""
 }

@@ -15,4 +15,7 @@ locals {
   cognito_issuer = var.cognito_issuer != "" ? var.cognito_issuer : "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.main.id}"
 
   s3_file_bucket = "${local.name_prefix}-files"
+
+  # 通知メールの送信元（CF_SES_FROM_ADDRESS）。明示指定 > ses_domain から導出 > アプリ既定と同じ無効ドメイン。
+  ses_from_address = var.ses_from_address != "" ? var.ses_from_address : (var.ses_domain != "" ? "no-reply@${var.ses_domain}" : "no-reply@example.invalid")
 }

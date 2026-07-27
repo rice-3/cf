@@ -17,6 +17,13 @@ github_repository = "rice-3/cf"
 
 # SES送信ドメイン（設定するとドメインID・DKIMを作成）
 # ses_domain        = "example.com"
+# ses_from_address  = "no-reply@example.com"   # 未指定なら no-reply@<ses_domain> を導出
+
+# ECS起動猶予（Spring Boot起動 + Flyway移行がALBヘルスチェックに間に合わない場合に延長）
+# health_check_grace_period_seconds = 180
+
+# ECS Exec（Private配置RDSへのSSMポートフォワード経路）。production では原則 false
+# enable_ecs_exec   = true
 
 # WAF
 # enable_waf        = true

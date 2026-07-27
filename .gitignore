@@ -41,3 +41,6 @@ playwright-report/
 .terraform/
 *.tfstate
 *.tfstate.*
+
+# Windows ショートカット（ローカル環境固有）
+*.lnk
