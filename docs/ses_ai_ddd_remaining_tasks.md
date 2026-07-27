@@ -2,7 +2,7 @@
 
 - 対象リポジトリ: `F:\11\CF`（GitHub: `https://github.com/rice-3/cf.git`）
 - 上位文書: 基本設計 BD-CF-001 v1.2 / 詳細設計 DD-CF-001 v1.2（`G:\マイドライブ\CF\`）
-- 更新日: 2026-07-22（残タスク再整理: 完了済みを §5 へ集約）
+- 更新日: 2026-07-27（早見表を **AWS要否**で再編。Flyway接続分離のTerraform配線を完了、ローカル検証環境を整備）
 - 実装済み範囲の詳細は `ses_ai_ddd_implementation_status.md` を参照。
 - 本書は**残タスク**を主役とする。完了済みは §5 に要約のみ記載。
 
@@ -14,8 +14,8 @@
 |---|---|---|
 | 1〜9 | Shared Kernel 〜 Identity/Admin/Audit（バックエンド全機能） | ✅ 完了 |
 | — | フロントエンド 全19画面（基本設計 §5.2） | ✅ 完了 |
-| 10 | CI/CD・スキャン・IaC（コア）・メトリクス公開・E2E・運用手順書 | ✅ 完了 |
-| 10 | 監視アラート実配線・IaC（残リソース）・SES登録 | ⬜ **残タスクの中心（主にAWS依存）** |
+| 10 | CI/CD・スキャン・IaC（コア）・メトリクス公開・E2E・運用手順書・AWS構築手順書 | ✅ 完了 |
+| 10 | 監視アラート実配線・IaC実apply・SES登録 | ⬜ **残タスクの中心（AWS依存）** |
 
 - バックエンドの業務API（API-PJ/RV/FL/FD/PY/RF/US/AD/AU）は全系列実装済み。
 - 業務フローは「起案 → 審査 → 公開 → 支援 → 決済 → 募集終了 → 返金 → 通知」まで一気通貫で動作。
@@ -23,21 +23,49 @@
 - 監視メトリクス（Micrometer → `/actuator/prometheus`、ビジネス滞留/バッチ稼働/APIレイテンシ）と
   アラート閾値定義（`docs/ops/monitoring.md`）は完了。残るは監視基盤への実配線（§2.1）。
 - E2E（Playwright）で「起案→審査承認」ジャーニー・ロール別アクセス制御・運用コンソールを検証（`e2e.yml`）。
-- 運用手順書（`docs/ops/runbook.md`）を整備。
-- **残るのはほぼAWS依存の運用基盤（監視アラートの実配線・IaCの残リソース・SES登録）** と、少数の要判断事項・軽微なフォローアップ。
+- 運用手順書（`docs/ops/runbook.md`）、AWS契約・構築手順書（`docs/ops/aws-contract-build-runbook.md`）を整備。
+- AWS契約〜CD稼働までの手順を文書化した際のコード読解で、apply してもECSタスクが起動しない設定不整合を3件検出し、
+  **修正済み（§2.2、ローカルで fmt/validate 通過を確認）**。
+- **残るのはほぼAWS依存の運用基盤（監視アラートの実配線・実apply・SES登録）** と、少数の要判断事項・軽微なフォローアップ。
+- **進め方**: AWS契約・apply はローカルテスト完了後。それまでは早見表 A（AWS不要）のみを進める。
+  中でも §2.3（タスク定義とアプリ設定の突き合わせ）は、apply 時の手戻りと無駄な課金を最も減らす。
 
 ### 残タスク早見表
 
+AWS要否で3分割する（A → B の順に進める）。
+
+#### A. AWS不要 — ローカルで着手できる（当面の作業対象）
+
 | 優先 | 区分 | タスク | 節 |
 |---|---|---|---|
-| 高 | IaC | 実AWSでの `apply`・疎通確認（未カバーリソースのコード化・DBユーザー移行は完了、validate/ローカル検証済） | 2.1 |
-| 高 | 監視 | メトリクスパイプライン構成＋実apply（Alarm/ダッシュボードのコード化は完了・validate済） | 2.1 |
-| 中 | 運用 | SESテンプレートのAWS実登録 | 3.1 |
-| 低 | CI | CodeQL Kotlin対応後の java-kotlin 追加検討 | 4.1 |
-| 低 | CI | contract-first DTO自動生成 / swagger-ui 導入 | 4.1 |
-| 低 | CI | Java整形（google/palantir-java-format、JDK25対応後） | 4.1 |
-| 低 | 文書 | 設計書 `.docx` の v1.2 再出力 | 4.1 |
-| — | 判断 | 要判断事項 A〜C・E（Dは ADR-0004/0005/0006 起票済み） | 5 の後 §6 |
+| 高 | IaC/検証 | **タスク定義 ⇄ アプリ設定の突き合わせ** — `validate` で検出できない実行時不整合の洗い出し（§2.2 で3件踏んだ類） | 2.3 |
+| 中 | セキュリティ | 要判断G: GitHub OIDC の信頼条件を `repo:<owner>/<repo>:*`（全ブランチ）から `main` 等へ限定 | 6-G |
+| 中 | 認証 | 要判断C: 未登録Cognito SubjectのJIT自動登録の可否。分岐実装とテストはローカルで完結 | 6-C |
+| 中 | 設計/実装 | 要判断B: Outbox配送のSQS切替。ADR起票＋実装（ローカル検証はスタブ/LocalStack） | 6-B |
+| 中 | 実装 | メイン画像のブラウザ直PUT（現状 local/test はS3スタブで実PUTなし。dev以上で必要） | 5.4 |
+| 低 | 運用判断 | production の `enable_ecs_exec` 既定値（常時 `false` にして必要時のみ有効化するか） | 2.1 |
+
+#### B. AWS必須 — 認証情報・実アカウントが要る（ローカルテスト完了後）
+
+| 優先 | 区分 | タスク | 節 |
+|---|---|---|---|
+| 高 | IaC | 実AWSでの `apply`・疎通確認（state置き場の手動作成、ECR先行applyを含む） | 2.1 |
+| 高 | 監視 | メトリクスパイプライン構成（ADOT/CW Agent サイドカー）＋実apply | 2.1 |
+| 高 | DB | 接続分離の**切り替え**: `cf_app_login` 作成 → Secret値投入 → `ecs.tf` 2行変更 → apply | 2.1 |
+| 中 | 通知 | SESテンプレート実登録・サンドボックス解除申請 | 3.1 |
+| 中 | 判断 | 要判断A: 監査アーカイブの実出力先（S3バケット/ストレージクラス/保持年数） | 6-A |
+| 中 | 判断 | 要判断E: Cognito実User Poolでの結合確認 | 6-E |
+
+#### C. 外部待ち — こちらから動かせない
+
+| 区分 | 内容 | 節 |
+|---|---|---|
+| 予算 | 要判断F: dev環境の稼働モードとコスト構成（予算責任者の決定） | 6-F |
+| 上流 | CodeQL の Kotlin 2.4 対応（現状 Semgrep で代替中） | 4.1 |
+
+> 完了済みで早見表から落としたもの: apply前の必須修正3件（§2.2）、Flyway接続分離のTerraform配線（§2.1）、
+> ECS Exec による保守経路（§2.1）、contract-first型生成/swagger-ui・Java整形・設計書docx再出力（§4.1、いずれも §5.3）。
+> 要判断D は ADR-0004/0005/0006 として起票済み。
 
 ---
 
@@ -49,13 +77,36 @@
       SQS+DLQ(`sqs.tf`) / SES ドメイン検証・DKIM(`ses.tf`) / Cognito User Pool・Client(`cognito.tf`) /
       WAF(`waf.tf`) / VPCエンドポイント(`vpc_endpoints.tf`) を追加し、IAM/ECS環境変数へ配線。
       `terraform fmt -check` / `init` / `validate` 済み（provider aws v5.100）。ドメイン/SESはvarでゲート。
-- [ ] **実AWSでの apply と疎通確認** — AWS認証情報が必要なため未実施。`apply` → ACM/SES のDNS検証完了 →
-      `terraform output` を GitHub Variables へ設定すると CD（`cd.yml`）が機能する。
+- [ ] **実AWSでの apply と疎通確認** — AWS認証情報が必要なため未実施。**手順は
+      `docs/ops/aws-contract-build-runbook.md` に確定済み**（契約 → Budgets → Identity Center →
+      state用S3/DynamoDB作成 → tfvars → apply → GitHub Variables → CD → 疎通確認 → destroy）。
+      前提として §2.2 の必須修正3件を先に適用すること。
+  - [ ] state置き場（S3 `cftraining-tfstate-<AccountID>` + DynamoDB `cftraining-tflock`）はTerraform管理外のため
+        手動作成（手順書 §10）。
+  - [ ] 初回は `-target=aws_ecr_repository.backend` で先にECRを作り `:bootstrap` タグを push してから全体applyする
+        （初期タスク定義が存在しないイメージを参照するため。手順書 §13.2）。
+  - [ ] `apply` 後の手作業: Secrets Manager の決済Webhookキー値投入 / Cognito App Client Secret のフロント設定 /
+        GitHub Variables 7件 / ACM・SES の DNS レコード / SNS購読承認（手順書 §14）。
+- [x] **Private配置RDSへの保守経路（ECS Exec）** — 2026-07-26 対応。`enable_ecs_exec`（既定 `true`）で
+      `aws_ecs_service.enable_execute_command` + タスクロールへ `ssmmessages` 4アクション、
+      セッションログ用の権限を付与。**セッション内容は `/ecs/<prefix>-exec`（保持365日）へ記録**する
+      （クラスタの `execute_command_configuration` を `OVERRIDE`。手動操作の証跡、要件C-17）。
+      実行イメージ（`amazoncorretto:25`）に psql は含まれないため、**SSMポートフォワードでローカルの psql を
+      RDSへ繋ぐ**方式とした（手順書 §14.5 に手順。Session Manager plugin が必要）。
+  - [ ] production で `enable_ecs_exec = false` とするか（必要時のみ一時有効化）の運用判断。
 - [x] **アプリDBユーザーのプロビジョニング（最小権限）** — Flyway移行
       `V202607230001__create_app_runtime_role.sql`（`cf_app_rw`: DMLのみ + 将来テーブル自動付与、冪等）と
       ブートストラップSQL `infra/db/create-app-user.sql`（ログインユーザー、資格情報はGit外）を追加。
       ローカルDBで検証済み（SELECT/DML可・DDL拒否・将来テーブル自動SELECT可）、Testcontainersビルドも通過。
-  - [ ] 本番の接続分離（実行時=`cf_app_login` / 移行=`SPRING_FLYWAY_USER`=オーナー）は apply 時に適用（`infra/terraform/README.md`）。
+  - [x] 接続分離の**Terraform側配線**（2026-07-27）— Secretの器 `aws_secretsmanager_secret.app_login`
+        （`<prefix>/app-login-password`、値はTerraform管理外）、実行ロールへの参照権限、
+        `SPRING_FLYWAY_USER`（=`db_username`）/ `SPRING_FLYWAY_PASSWORD`（RDSマスターの`password`）注入、
+        output `app_login_secret_id` を追加。`fmt -check` / `validate` 通過。
+        現状は `SPRING_DATASOURCE_*` もオーナーを指すため挙動は分離前と同じ（無害）。
+  - [ ] **残（apply後・AWS必須）**: ①`cf_app_login` ロール作成（`infra/db/create-app-user.sql` を
+        SSMポートフォワード経由で実行）②生成パスワードを `app_login_secret_id` の Secret へ投入
+        ③`ecs.tf` の `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` を2行切り替えて apply。
+        **順序厳守**（ロール不在で切り替えると起動不能）。手順は `infra/terraform/README.md`。
 - [x] **CloudWatch Alarm / ダッシュボードの Terraform 化** — `monitoring.tf` に SNSトピック（`alert_email` 購読）、
       インフラアラーム（ALB 5xx・p95レイテンシ / ECS CPU・メモリ / RDS CPU・空き容量・接続数）、
       ビジネス/バッチアラーム（Outbox滞留・通知失敗・返金失敗/再試行待ち・バッチ最終成功経過、
@@ -63,6 +114,45 @@
   - [ ] **メトリクスパイプラインの構成（apply時）** — ビジネス/バッチメトリクス（`var.metrics_namespace`）は
         `/actuator/prometheus` を CloudWatch Agent(Prometheus) / ADOT Collector で収集し CloudWatch へ発行する
         構成が前提（ECSサイドカー等）。インフラアラームは apply 後すぐ有効。実 apply とメール購読確認は AWS 必須。
+        推奨構成は ADOT Collector のサイドカー（Prometheus receiver → `awsemf` exporter、タスクロールへ
+        `cloudwatch:PutMetricData` 追加）。詳細は手順書 §17。
+
+### 2.2 apply前の設定不整合（3件）— **対応済み 2026-07-26**
+
+`docs/ops/aws-contract-build-runbook.md` 作成時のコード読解で検出。未修正のまま apply すると
+タスク起動失敗のループで NAT / Fargate / ALB の課金だけが発生する状態だった。3件とも修正済み。
+
+- [x] **(1) DataSource の環境変数名が Spring と不一致（起動不能）** — `ecs.tf` の
+      `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` を Relaxed Binding に従う
+      `SPRING_DATASOURCE_URL` / `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD`（secrets）へ改名。
+      `application-dev.yml` は追加せず Terraform 側だけで閉じた。
+  - [x] 接続分離用の `SPRING_FLYWAY_USER` / `SPRING_FLYWAY_PASSWORD` 注入（2026-07-27、§2.1 参照）。
+        実行時側の `cf_app_login` への切り替えは apply 後の作業として §2.1 に残す。
+- [x] **(2) SES送信元アドレスが未注入** — `local.ses_from_address` を `CF_SES_FROM_ADDRESS` として注入。
+      優先順位は `var.ses_from_address` → `no-reply@${var.ses_domain}` → `no-reply@example.invalid`(アプリ既定)。
+      変数 `ses_from_address` を追加（`variables.tf` / `terraform.tfvars.example` / README 更新済み）。
+      **`ses_domain` / `ses_from_address` のいずれも空だと従来どおり送信失敗する**点は仕様として明記。
+- [x] **(3) ヘルスチェック猶予が未設定** — `aws_ecs_service.backend` に
+      `health_check_grace_period_seconds = var.health_check_grace_period_seconds`（既定 `180`）を追加。
+
+> 3件とも `terraform fmt` / `validate` は通るため CI では検出できなかった（**実行時の不整合**）。
+> ローカル検証は 2026-07-27 に実施済み（Terraform 1.15.8 導入後、`fmt -check -recursive` / `init -backend=false` /
+> `validate` すべて通過）。ただしこれは構文・型が正しいことしか示さない。同種の不整合は §2.3 で洗い出す。
+
+### 2.3 タスク定義 ⇄ アプリ設定の突き合わせ（AWS不要・未実施）
+
+§2.2 の3件は「`validate` は通るが apply するとタスクが起動しない」類で、CIでは原理的に検出できない。
+同じ穴が他に残っていないかを、**AWS に触れずコード読解で**洗い出す。apply 前に済ませておく価値が最も高い。
+
+- [ ] `ecs.tf` の `environment` / `secrets` と、アプリが実際に読む設定キーの全件突き合わせ
+      （`application.yml` / `application-{profile}.yml` / `@Value` / `@ConfigurationProperties`）。
+      Relaxed Binding で束縛されるか、既定値に落ちて無言で動くだけになっていないかを確認する。
+- [ ] `dev` プロファイルで**未定義のまま参照している設定**がないか（local/test にしか無い定義への依存）。
+- [ ] Flyway 実行順とアプリ起動の関係（`V202607230001` の `cf_app_rw` 作成が実行時ロールより先か）。
+- [ ] バッチ／ShedLock／Outbox がマルチインスタンス（`desired_count` > 1）で破綻しないか（要判断B と関連）。
+- [ ] ヘルスチェック経路（ALB ターゲットグループのパス）と `/actuator/health` の露出設定の整合。
+
+> 突き合わせ結果は §7 の「実装時の注意点」へ追記し、再発防止の観点として残す。
 
 ---
 
@@ -72,6 +162,9 @@
 
 - [ ] 本文は `NotificationTemplateCatalog` を正として定義済み。`aws_sesv2_email_template` またはCLIで
       実登録する（テンプレートIDはカタログのキー）。§2.1 の SES ドメイン検証と併せて実施。
+- [ ] **SESサンドボックス解除の申請** — 初期状態は検証済みアドレス宛にしか送信できない。任意宛先へ送るには
+      Production access を申請する（承認まで最大24時間）。申請しない運用なら、テスト用受信アドレスを
+      個別に検証する（手順書 §14.4）。
 
 ---
 
@@ -147,6 +240,10 @@
   SQS+DLQ / SESドメイン・DKIM / Cognito User Pool・Client / WAF / VPCエンドポイント。IAM・ECS環境変数へ配線。
   `terraform.yml` で fmt / init / validate（provider aws v5.100）。ドメイン/SESはvarでゲート。
   `apply` はAWS認証が必要なため手動運用（残 §2.1、`infra/terraform/README.md`）。
+- **ECS Exec（保守経路）** — `enable_ecs_exec`（既定true）でサービスの `enable_execute_command` +
+  タスクロールへ `ssmmessages` 4アクション + セッションログ権限。クラスタの `execute_command_configuration` を
+  `OVERRIDE` にして `/ecs/<prefix>-exec`（365日）へセッションを記録（要件C-17）。
+  Private配置RDSへはSSMポートフォワード経由でローカルの psql を使う（イメージに psql 非同梱のため）。
 - **最小権限DBユーザー** — Flyway移行 `V202607230001__create_app_runtime_role.sql`（`cf_app_rw`: DMLのみ・
   将来テーブル自動付与）+ ブートストラップSQL `infra/db/create-app-user.sql`（ログインユーザー）。
   実行時接続を最小権限ユーザー、移行をオーナーに分離する方針（本番はdev以上で適用）。ローカルDBで検証済み。
@@ -170,6 +267,13 @@
 - **運用手順書** — `docs/ops/runbook.md`。バッチ運用（再実行方針）、決済照合、返金の手動対応、
   Outbox滞留・通知失敗、障害切り分け（相関ID/監査ログ/メトリクス）、アラート→一次対応表、
   デプロイ/ロールバックを記載。本番手動変更は監査対象（要件C-17）である旨を明記。
+- **AWS契約・構築手順書** — `docs/ops/aws-contract-build-runbook.md`（2026-07-26）。アカウント契約・ルート保護・
+  Budgets・IAM Identity Center から、state置き場の手動作成、`terraform.tfvars`、段階apply、apply後の手作業
+  （Secrets値/Cognito Client Secret/GitHub Variables/DNS/DBユーザー/SNS購読）、CD実行、疎通確認、破棄までを
+  本リポジトリの実定義に沿って記述。あわせて **費用概算（dev常時稼働で月4.3〜5.0万円。支配的なのは
+  Interface VPCエンドポイント12 ENIとNAT Gatewayで全体の約6割）** と削減オプション、destroy時の落とし穴
+  （S3バージョン残存・ECRイメージ残存・Secrets Managerの30日復旧猶予による名前衝突）を整理。
+  本書作成時の読解で §2.2 の不整合3件を検出。
 
 ### 5.4 既知の暫定実装（要フォロー）
 
@@ -192,6 +296,8 @@
 | C | 未登録Cognito Subjectの初回JIT自動登録（既定ロールSUPPORTER）の可否 | `CognitoJwtAuthenticationConverter` に `TODO(question)`。許容しない場合は管理者Invite方式へ変更。dev投入前に承認要 |
 | D | ~~ADR-BFF配置 / 決済非同期UI / Rich Text形式 の3件が未起票~~ → **起票済み** | ADR-0004（BFF配置）/ ADR-0005（決済非同期UI）/ ADR-0006（本文プレーンテキスト）。既定動作を追認する形で文書化 |
 | E | Cognito実User Poolでの結合確認 | 未実施（テストはlocal/testの開発用ヘッダー認証のみ）。dev環境構築時に実施 |
+| F | dev環境の稼働モードとコスト構成 | 常時稼働は月4.3〜5.0万円。Interface VPCエンドポイント（12 ENI、約1.9万円/月）の要否、`desired_count`、Container Insights、WAFの取捨で1.5〜2.0万円まで低減可。「都度 apply/destroy」運用なら数千円。予算責任者の決定が必要（手順書 §3） |
+| G | GitHub OIDC の信頼条件 | `oidc.tf` の `sub` は `repo:<owner>/<repo>:*` で全ブランチ許可。任意ブランチからデプロイ可能なため、`ref:refs/heads/main` 等への限定を検討（手順書 §20.4） |
 
 > 解決済みの要判断: 起案者向け通知の宛先解決（ADR-0002）、冪等記録削除バッチ（BAT-010）、
 > バッチ多重起動防止（ADR-0003: ShedLock）、BFF配置（ADR-0004）、決済非同期UI（ADR-0005）、
@@ -212,3 +318,5 @@
 | Hibernateスキーマ検証 | `ddl-auto: validate` のため Migration型とEntityマッピングの不一致は起動失敗（`char(n)`は`bpchar`扱い）。`shedlock`等の非Entityテーブルは対象外 |
 | JPQLのnullパラメータ | `LIKE`/`concat` にnullを渡すと型推論が`bytea`になり `character varying ~~ bytea` エラー。呼出し側で空文字へ正規化する（SCR-010で実際に踏んだ） |
 | クライアント/サーバー境界 | Client Component（"use client"）から `next/headers` 依存モジュールをimportするとビルド失敗。型/定数は `lib/api-types.ts` に分離する |
+| ECSの環境変数名 | Spring の Relaxed Binding は `SPRING_DATASOURCE_URL` 形式のみ束縛する。`DB_URL` のような独自名は、`application-{profile}.yml` で `${DB_URL}` と明示しない限り無視される（§2.2-(1) で実際に踏んだ） |
+| IaCの検証範囲 | `terraform validate` は構文と型のみ。環境変数名の不一致・ヘルスチェック猶予・未注入の設定値といった**実行時の不整合はCIで検出できない**。apply前にタスク定義とアプリ設定を突き合わせる |
