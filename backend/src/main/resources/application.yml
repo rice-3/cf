@@ -81,6 +81,8 @@ cf:
   notification:
     ses:
       from-address: ${CF_SES_FROM_ADDRESS:no-reply@example.invalid}
+      # 配信イベント（バウンス・苦情）の集約先。未設定なら設定セットなしで送信する。
+      configuration-set-name: ${CF_SES_CONFIGURATION_SET:}
   batch:
     # 定期バッチ（基本設計 §8.1）。周期・件数は同表に従う。
     enabled: true

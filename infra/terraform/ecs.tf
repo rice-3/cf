@@ -56,6 +56,11 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "SPRING_FLYWAY_USER", value = var.db_username },
         { name = "COGNITO_ISSUER", value = local.cognito_issuer },
         { name = "CF_FILE_BUCKET", value = aws_s3_bucket.files.bucket },
+        # S3キーの先頭に付く環境識別子（詳細設計 §10.2: env/userId/fileId/...）。
+        # 未注入だとアプリ既定の "local" のままになり、環境間でキー空間が分離されない。
+        { name = "CF_FILE_KEY_PREFIX", value = var.environment },
+        # TODO(question): Outbox配送は現状 InProcessOutboxDispatcher（アプリ内）で、この変数を読む実装が無い。
+        # SQSへ切り替えるか否かは要判断B。キューと task role の権限だけ先に存在している状態。
         { name = "CF_OUTBOX_SQS_QUEUE_URL", value = aws_sqs_queue.outbox.url },
         { name = "CF_SES_CONFIGURATION_SET", value = aws_sesv2_configuration_set.main.configuration_set_name },
         # 送信元。ses_domain / ses_from_address 未設定時はアプリ既定と同じ無効ドメインが入る（送信は失敗する）

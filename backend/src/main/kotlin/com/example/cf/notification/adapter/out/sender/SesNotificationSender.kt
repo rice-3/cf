@@ -72,7 +72,8 @@ class SesNotificationSender(
                     )
                     .build(),
             )
-            .apply { properties.configurationSetName?.let { configurationSetName(it) } }
+            // 未設定時は空文字が束縛される（application.yml の既定）。空のまま渡すとSESが拒否するため除外する。
+            .apply { properties.configurationSetName?.takeIf { it.isNotBlank() }?.let { configurationSetName(it) } }
             .build()
 
         return try {

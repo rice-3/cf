@@ -73,8 +73,14 @@ DataSource は **Spring Boot の Relaxed Binding に従う名前**で注入す�
 | `SPRING_DATASOURCE_PASSWORD` | Secrets Manager（RDS管理シークレットの `password` キー） |
 | `SPRING_FLYWAY_USER` | Terraform（`db_username` = オーナー。移行は常にオーナーが実行する） |
 | `SPRING_FLYWAY_PASSWORD` | Secrets Manager（RDS管理シークレットの `password` キー） |
-| `COGNITO_ISSUER` / `CF_FILE_BUCKET` / `CF_OUTBOX_SQS_QUEUE_URL` / `CF_SES_CONFIGURATION_SET` / `CF_SES_FROM_ADDRESS` / `AWS_REGION` | Terraform |
+| `COGNITO_ISSUER` / `CF_FILE_BUCKET` / `CF_FILE_KEY_PREFIX` / `CF_SES_CONFIGURATION_SET` / `CF_SES_FROM_ADDRESS` / `AWS_REGION` | Terraform |
+| `CF_OUTBOX_SQS_QUEUE_URL` | Terraform（**現状アプリ側に読む実装が無い**。Outbox は `InProcessOutboxDispatcher`。要判断B） |
 | `CF_PAYMENT_WEBHOOK_SECRET` | Secrets Manager（値は apply 後に手動投入） |
+
+`CF_` 系の短い名前は Relaxed Binding では束縛されない。`application.yml` に
+`${CF_FILE_BUCKET:...}` のようなプレースホルダが**書かれているものだけ**が効く。
+`ecs.tf` に変数を足すときは、必ず `application.yml` 側の受け口も併せて用意すること
+（束縛されない変数は起動を止めず、既定値のまま無言で動く）。
 
 > Flyway 用の接続は配線済み。現時点では `SPRING_DATASOURCE_*` もオーナーを指しているため実質同一接続であり、
 > 挙動は変わらない。実行時接続を `cf_app_login` へ切り替える手順は後述（DBロール作成が先）。
