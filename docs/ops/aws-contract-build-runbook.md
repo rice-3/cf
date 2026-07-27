@@ -907,20 +907,48 @@ state バケットと DynamoDB テーブルだけが Terraform 管理外で残�
 
 IAM 側の条件は「どの Environment 経由か」を固定するだけで、**どのブランチから
 `workflow_dispatch` できるかは縛らない**。ブランチの限定と承認は GitHub 側で行う。
-apply 後、CD を初めて動かす前に設定すること。
 
-`Settings > Environments` で `dev` と `staging` をそれぞれ作成し、以下を設定する。
+> **設定済み（2026-07-27）。** AWS 不要の作業だったため apply を待たずに実施した。
+> 以下は現在の設定と、再構築・別環境へ展開する際の再現手順である。
 
-| 設定 | 値 | 目的 |
+| Environment | Deployment branches | Required reviewers |
 |---|---|---|
-| Deployment branches and tags | `Selected branches` → `main` | main 以外からのデプロイを禁止 |
-| Required reviewers | 承認者を指定（`staging` は必須） | 要件C-17「AI単独の本番反映禁止」 |
-| Wait timer | 任意 | 誤操作時の取り消し猶予 |
+| `dev` | `main` のみ | なし |
+| `staging` | `main` のみ | `rice-3`（要件C-17「AI単独の本番反映禁止」） |
+
+GUI なら `Settings > Environments`。`gh` CLI での再現は次のとおり。
+
+```bash
+REVIEWER_ID=$(gh api users/<login> --jq .id)
+
+# dev（ブランチ限定のみ）
+gh api -X PUT repos/<owner>/<repo>/environments/dev --input - <<'JSON'
+{ "wait_timer": 0, "prevent_self_review": false, "reviewers": [],
+  "deployment_branch_policy": { "protected_branches": false, "custom_branch_policies": true } }
+JSON
+gh api -X POST repos/<owner>/<repo>/environments/dev/deployment-branch-policies -f name=main
+
+# staging（承認者あり）
+gh api -X PUT repos/<owner>/<repo>/environments/staging --input - <<JSON
+{ "wait_timer": 0, "prevent_self_review": false,
+  "reviewers": [ { "type": "User", "id": $REVIEWER_ID } ],
+  "deployment_branch_policy": { "protected_branches": false, "custom_branch_policies": true } }
+JSON
+gh api -X POST repos/<owner>/<repo>/environments/staging/deployment-branch-policies -f name=main
+```
+
+注意点:
 
 - Environment が存在しない状態で `workflow_dispatch` すると、GitHub は Environment を
   暗黙作成せずジョブが失敗する。**先に作成しておく**
 - Deployment branches を設定しないと、任意のブランチの `cd.yml` から dev/staging へ
   デプロイできてしまう（IAM 側は Environment 名しか見ていないため）
+- `custom_branch_policies: true` で `main` を明示登録する。`protected_branches: true` 方式は
+  ブランチ保護ルールの有無に挙動が依存するため採らない
+- `prevent_self_review` は `false`。承認者が1人しかいないため、有効にすると自分が起票した
+  デプロイを誰も承認できなくなる。**承認者を増やしたら `true` へ切り替えること**
+- 保護ルールは public リポジトリでは無料。**private 化するなら GitHub Pro / Team 以上が必要**で、
+  プラン次第でこの保護が無効化される
 
 ### 20.5 Terraform の state ロックが解除されない
 

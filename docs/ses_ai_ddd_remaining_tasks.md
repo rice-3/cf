@@ -64,7 +64,7 @@ AWS要否で3分割する（A → B の順に進める）。
 | 高 | IaC | 実AWSでの `apply`・疎通確認（state置き場の手動作成、ECR先行applyを含む） | 2.1 |
 | 高 | 監視 | メトリクスパイプライン構成（ADOT/CW Agent サイドカー）＋実apply | 2.1 |
 | 高 | DB | 接続分離の**切り替え**: `cf_app_login` 作成 → Secret値投入 → `ecs.tf` 2行変更 → apply | 2.1 |
-| 高 | CD | **GitHub Environment（`dev` / `staging`）の作成と保護ルール設定** — Deployment branches を `main` に限定、Required reviewers を有効化。未設定だと任意ブランチからデプロイできる。CD初回実行前に必須 | 2.5 |
+| — | CD | ~~GitHub Environment（`dev` / `staging`）の作成と保護ルール設定~~ → **設定済み 2026-07-27**（AWS不要だった。§2.5） | 2.5 |
 | 中 | 通知 | SESテンプレート実登録・サンドボックス解除申請 | 3.1 |
 | 中 | 判断 | 要判断A: 監査アーカイブの実出力先（S3バケット/ストレージクラス/保持年数） | 6-A |
 | 中 | 判断 | 要判断E: Cognito実User Poolでの結合確認 | 6-E |
@@ -264,7 +264,24 @@ runbook §20.4 は変更前まさに `ref:refs/heads/main` を推奨していた
 
 **IAM 側の条件はブランチを縛らない。** `sub` に ref が含まれないため、GitHub 側の保護ルールを
 設定しない限り任意ブランチの `cd.yml` から dev/staging へデプロイできる。
-このGitHub側設定は **apply 後・CD初回実行前の必須作業**として runbook §20.4.1 に手順化した。
+手順は runbook §20.4.1 に記載。
+
+#### GitHub 側の設定（**完了 2026-07-27**）
+
+当初「apply後の作業」として表Bに置いていたが、**AWSは不要**だったため先に設定した。
+`gh` CLI で実施し、API で設定内容を検証済み。
+
+| Environment | Deployment branches | Required reviewers |
+|---|---|---|
+| `dev` | `main` のみ | なし |
+| `staging` | `main` のみ | `rice-3`（要件C-17「AI単独の本番反映禁止」） |
+
+- `deployment_branch_policy` は `custom_branch_policies: true` とし、`main` を明示登録した
+  （`protected_branches` 方式にすると、ブランチ保護ルールの有無に挙動が依存するため）
+- `prevent_self_review` は `false`。承認者が1人しかいないため、有効にすると自分が起票した
+  デプロイを誰も承認できなくなる。**承認者を増やしたら `true` に切り替えること**
+- 保護ルールは public リポジトリでは無料で使える。**private 化する場合は
+  GitHub Pro / Team 以上が必要**で、プラン次第でこの保護が外れる点に注意
 
 #### 運用上の注意
 
