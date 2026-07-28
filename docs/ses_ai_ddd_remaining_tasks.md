@@ -2,7 +2,7 @@
 
 - 対象リポジトリ: `F:\11\CF`（GitHub: `https://github.com/rice-3/cf.git`）
 - 上位文書: 基本設計 BD-CF-001 v1.2 / 詳細設計 DD-CF-001 v1.2（`G:\マイドライブ\CF\`）
-- 更新日: 2026-07-28（§2.3 突き合わせ、要判断 H/G/C/B/A（ADR-0007〜0009）、直PUT、enable_ecs_exec、GitHub Environment、フロントのESLint整備（§4.2）を完了。**AWS不要の残タスクは完了**）
+- 更新日: 2026-07-28（§2.3 突き合わせ、要判断 H/G/C/B/A（ADR-0007〜0009）、直PUT、enable_ecs_exec、GitHub Environment、フロントのESLint整備（§4.2）を完了しpush済み。**AWS不要の残タスクは完了**。Trivyゲートのみ上流待ちで赤い（§4.3））
 - 実装済み範囲の詳細は `ses_ai_ddd_implementation_status.md` を参照。
 - 本書は**残タスク**を主役とする。完了済みは §5 に要約のみ記載。
 
@@ -81,6 +81,7 @@ AWS要否で3分割する（A → B の順に進める）。
 | 予算 | 要判断F: dev環境の稼働モードとコスト構成（予算責任者の決定） | 6-F |
 | 上流 | CodeQL の Kotlin 2.4 対応（現状 Semgrep で代替中） | 4.1 |
 | 上流 | `eslint-plugin-react` の ESLint 10 対応（対応後に `eslint-config-next` へ戻す） | 4.2 |
+| 上流 | **Next が `postcss` を 8.5.18 以上へ更新**（`postcss` CVE-2026-45623。現在 Trivy ゲートが赤い唯一の原因） | 4.3 |
 
 > 完了済みで早見表から落としたもの: apply前の必須修正3件（§2.2）、Flyway接続分離のTerraform配線（§2.1）、
 > ECS Exec による保守経路（§2.1）、contract-first型生成/swagger-ui・Java整形・設計書docx再出力（§4.1、いずれも §5.3）。
@@ -570,6 +571,42 @@ lint が動いたことがなかった**（`create-next-app` の残骸）。CI �
 - [x] **設計書 `.docx` の再出力** — 完了。`G:\マイドライブ\CF` の md から pandoc で再生成
       （原本の書式を `--reference-doc` で継承、旧版は `*.v1.0.docx` として退避）。
       なお md の版数表は両書とも「1.0」で、当初の「v1.2」記載は事実誤りだったため docx と内容を同期した。
+
+### 4.3 Trivy ゲートが赤い件（`postcss` CVE-2026-45623・**上流待ち 2026-07-28**）
+
+`security-scan.yml` の Trivy ゲート（`--severity HIGH,CRITICAL --ignore-unfixed`）が
+**failure のまま**である。**指摘は1件だけ**で、`frontend/package-lock.json` の
+`postcss` CVE-2026-45623（GHSA-r28c-9q8g-f849、修正版 8.5.18 以上）。
+
+#### これは既存の問題である
+
+`9042921`（一連の作業を始める前の HEAD）の時点で既に failure になっている。
+**同じコミットで以前は success だった**ので、新しい脆弱性情報が公開されて赤くなったもの。
+今回の変更が持ち込んだものではない。
+
+#### 待ちにした理由
+
+`next@16.2.11` は `postcss@8.4.31` を**完全固定**で依存している。
+**最新の `next@16.2.12` を確認したが、まだ `8.4.31` のまま**（2026-07-28 時点）。
+
+| 案 | 判断 |
+|---|---|
+| `overrides` で `postcss@8.5.23` へ上げる | **採らない**。postcss の指摘は消えるが、代わりに `sharp`（libvips の CVE 4件）が表面化し、npm の提案する修正が `next` のメジャーダウングレード（14.2.35）になる。アプリのCSSビルド経路に関わる依存変更を検証しきれないまま入れない |
+| **Next の更新を待つ** | **採用**（2026-07-28 判断）。postcss を上げた Next が出たら追随する |
+| `.trivyignore` で期限付き除外 | 採らない。AGENTS.md「CI品質ゲート定義の検査スキップ・削除」に触れる |
+
+#### 待つ間のリスク（認識しておくこと）
+
+**ゲートが恒常的に赤いと、新しく増えた本物の HIGH に気付けなくなる。**
+Trivy の SARIF は GitHub Security タブへ上がっているので、
+**ゲートの赤/緑ではなく SARIF の中身で新規指摘を確認すること。**
+
+#### 解消したときの手順
+
+1. `npm view next dependencies.postcss` が 8.5.18 以上になった Next を確認
+2. `npm install --save-exact next@<新版>` して `npm audit` から postcss が消えることを確認
+3. `npm run lint` / `typecheck` / `build` と E2E を通す
+4. push して Trivy ゲートが緑になることを確認
 
 ---
 
