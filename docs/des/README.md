@@ -10,18 +10,29 @@
 | `ses_ai_ddd_requirements_tech_selection.md` | — | 1.1 | 要件定義書・要件確認書・技術選定書（統合） |
 | `ses_ai_ddd_basic_design.md` | BD-CF-001 | 1.3 | 基本設計書 |
 | `ses_ai_ddd_detailed_design.md` | DD-CF-001 | 1.3 | 詳細設計書 |
-| `ses_ai_ddd_basic_design.docx` / `ses_ai_ddd_detailed_design.docx` | 同上 | **1.2 相当** | **`.md` より古い**。下記参照 |
+| `ses_ai_ddd_basic_design.docx` / `ses_ai_ddd_detailed_design.docx` | 同上 | 1.3 | `.md` から pandoc で再出力済み（2026-07-28） |
 | `01_`〜`05_*.docx` | — | — | 初期の要件・概要・技術一覧・開発計画 |
 
 ## `.md` と `.docx` の関係
 
-**`.md` を正とする。** `.docx` は `.md` から pandoc で再出力する運用で、
-現時点の `.docx` は **1.2 相当で止まっている**（1.3 の同期が未実施）。
+**`.md` を正とする。** `.docx` は `.md` から pandoc で再出力する。
+**2026-07-28 に 1.3 で同期済み**（pandoc 3.10）。
+
+再出力は、**直前の `.docx` 自身を `--reference-doc` に渡して書式を引き継ぐ**。
+上書き対象をそのまま参照はできないので、先にコピーを取る。
 
 ```bash
-# 原本の書式を継承して再出力する
-pandoc ses_ai_ddd_basic_design.md    -o ses_ai_ddd_basic_design.docx    --reference-doc=<原本>
-pandoc ses_ai_ddd_detailed_design.md -o ses_ai_ddd_detailed_design.docx --reference-doc=<原本>
+cd docs/des
+for n in basic detailed; do
+  cp "ses_ai_ddd_${n}_design.docx" "/tmp/ses_ai_ddd_${n}_design.ref.docx"
+  pandoc "ses_ai_ddd_${n}_design.md" -o "ses_ai_ddd_${n}_design.docx" --reference-doc="/tmp/ses_ai_ddd_${n}_design.ref.docx"
+done
+```
+
+出力後は中身で確認する（バイナリなので diff では分からない）。
+
+```bash
+pandoc ses_ai_ddd_basic_design.docx -t plain | grep -E "版数|1\.3"
 ```
 
 ## 版数 1.3（2026-07-28）について
