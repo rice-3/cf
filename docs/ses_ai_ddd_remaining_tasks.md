@@ -738,6 +738,10 @@ Trivy の SARIF は GitHub Security タブへ上がっているので、
 
 同種の実装を追加する際の参考。
 
+> 各項目を「何が起きて、なぜ起きて、どう直したか」の事象単位でまとめたものが
+> **`ses_ai_ddd_problem_catalog.md`（問題と解決の記録）** にある。
+> 背景や誤った初期判断も含めて追いたい場合はそちらを参照。
+
 | 項目 | 内容 |
 |---|---|
 | `@Transactional` 自己呼出し | `REQUIRES_NEW` は同一クラス内呼出しではプロキシを経由せず**無効**。外部呼出しを挟む処理は別Beanへ切り出す（`PaymentTransactionSteps` / `NotificationTransactionSteps`） |
