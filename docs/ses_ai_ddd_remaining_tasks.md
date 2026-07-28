@@ -1,7 +1,7 @@
 # CF-Training 残タスク一覧
 
 - 対象リポジトリ: `F:\11\CF`（GitHub: `https://github.com/rice-3/cf.git`）
-- 上位文書: 基本設計 BD-CF-001 v1.2 / 詳細設計 DD-CF-001 v1.2（`G:\マイドライブ\CF\`）
+- 上位文書: 基本設計 BD-CF-001 v1.3 / 詳細設計 DD-CF-001 v1.3（**`docs/des/`（正）**。G:はバックアップ）
 - 更新日: 2026-07-28（§2.3 突き合わせ、要判断 H/G/C/B/A（ADR-0007〜0009）、直PUT、enable_ecs_exec、GitHub Environment、フロントのESLint整備（§4.2）を完了しpush済み。**AWS不要の残タスクは完了**。Trivyゲートのみ上流待ちで赤い（§4.3））
 - 実装済み範囲の詳細は `ses_ai_ddd_implementation_status.md` を参照。
 - 本書は**残タスク**を主役とする。完了済みは §5 に要約のみ記載。
@@ -568,7 +568,7 @@ lint が動いたことがなかった**（`create-next-app` の残骸）。CI �
       swagger-ui（`/swagger-ui.html`）導入、フロント型を spec から生成（`npm run gen:api-types`）+ CI鮮度ゲート。
 - [x] **Java整形** — 完了（§5.3）。google/palantir は JDK 25 で javac 内部API非互換のため、
       JDK非依存の Eclipse JDT フォーマッタを Spotless に採用（コメントは保全しコードのみ整形）。
-- [x] **設計書 `.docx` の再出力** — 完了。`G:\マイドライブ\CF` の md から pandoc で再生成
+- [x] **設計書 `.docx` の再出力** — 完了。`docs/des/` の md から pandoc で再生成
       （原本の書式を `--reference-doc` で継承、旧版は `*.v1.0.docx` として退避）。
       なお md の版数表は両書とも「1.0」で、当初の「v1.2」記載は事実誤りだったため docx と内容を同期した。
 
