@@ -44,13 +44,33 @@ public class S3AuditArchiveAdapter implements AuditArchivePort, DisposableBean {
     private final AuditArchiveProperties properties;
     private final ObjectMapper objectMapper;
     private final Clock clock;
-    private final S3Client s3;
+
+    /**
+     * S3クライアントは遅延生成する。BAT-009 は月次でしか動かないため常時保持する必要が無く、
+     * 何より<strong>設定不備の検知（bucket未設定）をAWSへ触れる前に行える</strong>ようにするため。
+     * コンストラクタで {@code S3Client.create()} すると、リージョン未解決の環境では
+     * 生成時点で落ちてしまい、下の設定ガードまで到達しない。
+     */
+    private volatile S3Client s3;
 
     public S3AuditArchiveAdapter(AuditArchiveProperties properties, ObjectMapper objectMapper, Clock clock) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.clock = clock;
-        this.s3 = S3Client.create();
+    }
+
+    private S3Client client() {
+        S3Client current = s3;
+        if (current == null) {
+            synchronized (this) {
+                current = s3;
+                if (current == null) {
+                    current = S3Client.create();
+                    s3 = current;
+                }
+            }
+        }
+        return current;
     }
 
     @Override
@@ -71,7 +91,7 @@ public class S3AuditArchiveAdapter implements AuditArchivePort, DisposableBean {
                 .build();
 
         try {
-            s3.putObject(request, RequestBody.fromBytes(content));
+            client().putObject(request, RequestBody.fromBytes(content));
         } catch (SdkException e) {
             throw new DependencyException("AUDIT_ARCHIVE_UNAVAILABLE", "Failed to put audit archive: " + key, e);
         }
@@ -102,6 +122,9 @@ public class S3AuditArchiveAdapter implements AuditArchivePort, DisposableBean {
 
     @Override
     public void destroy() {
-        s3.close();
+        S3Client current = s3;
+        if (current != null) {
+            current.close();
+        }
     }
 }
