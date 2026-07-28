@@ -6,10 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
-    "gen:api-types": "openapi-typescript ../docs/api/openapi.yaml -o src/lib/generated/api.ts"
+    "gen:api-types": "openapi-typescript ../docs/api/openapi.yaml -o src/lib/generated/api.ts",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@hookform/resolvers": "5.2.2",
@@ -21,12 +22,16 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@next/eslint-plugin-next": "16.2.11",
     "@playwright/test": "^1.61.1",
     "@types/node": "24.13.3",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
+    "eslint": "10.8.0",
+    "eslint-plugin-react-hooks": "7.1.1",
     "openapi-typescript": "^7.13.0",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.65.0"
   },
   "overrides": {
     "sharp": "^0.35.0"

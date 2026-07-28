@@ -57,7 +57,7 @@ jobs:
           if-no-files-found: ignore
 
   frontend:
-    name: Frontend (typecheck + build)
+    name: Frontend (lint + typecheck + build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -82,6 +82,10 @@ jobs:
           npm run gen:api-types
           git diff --exit-code -- src/lib/generated/api.ts \
             || (echo "::error::生成APIの型が古いです。'npm run gen:api-types' を実行してコミットしてください。"; exit 1)
+
+      # Next 16 で `next lint` が廃止されたため ESLint を直接起動する（eslint.config.mjs）。
+      - name: Lint
+        run: npm run lint
 
       - name: Type check
         run: npm run typecheck

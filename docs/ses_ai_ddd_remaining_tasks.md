@@ -2,7 +2,7 @@
 
 - 対象リポジトリ: `F:\11\CF`（GitHub: `https://github.com/rice-3/cf.git`）
 - 上位文書: 基本設計 BD-CF-001 v1.2 / 詳細設計 DD-CF-001 v1.2（`G:\マイドライブ\CF\`）
-- 更新日: 2026-07-27（§2.3 突き合わせ、要判断 H/G/C/B/A（ADR-0007〜0009）、直PUT、enable_ecs_exec、GitHub Environment を決定・実装。**AWS不要の残タスクは完了**）
+- 更新日: 2026-07-28（§2.3 突き合わせ、要判断 H/G/C/B/A（ADR-0007〜0009）、直PUT、enable_ecs_exec、GitHub Environment、フロントのESLint整備（§4.2）を完了。**AWS不要の残タスクは完了**）
 - 実装済み範囲の詳細は `ses_ai_ddd_implementation_status.md` を参照。
 - 本書は**残タスク**を主役とする。完了済みは §5 に要約のみ記載。
 
@@ -80,6 +80,7 @@ AWS要否で3分割する（A → B の順に進める）。
 |---|---|---|
 | 予算 | 要判断F: dev環境の稼働モードとコスト構成（予算責任者の決定） | 6-F |
 | 上流 | CodeQL の Kotlin 2.4 対応（現状 Semgrep で代替中） | 4.1 |
+| 上流 | `eslint-plugin-react` の ESLint 10 対応（対応後に `eslint-config-next` へ戻す） | 4.2 |
 
 > 完了済みで早見表から落としたもの: apply前の必須修正3件（§2.2）、Flyway接続分離のTerraform配線（§2.1）、
 > ECS Exec による保守経路（§2.1）、contract-first型生成/swagger-ui・Java整形・設計書docx再出力（§4.1、いずれも §5.3）。
@@ -514,6 +515,54 @@ production で強制する段階になっても**バケットを作り直さず�
 
 - [ ] **CodeQL Kotlin対応** — CodeQLがKotlin 2.4対応後、`codeql.yml` へ java-kotlin を追加
       （現状Semgrepで代替中。Semgrepと併用 or 置換を判断）。※上流（CodeQL）待ち。
+- [x] **フロントの ESLint 整備** — 完了 2026-07-28（§4.2）。
+- [ ] **`eslint-config-next` への回帰** — `eslint-plugin-react` が ESLint 10 に対応したら、
+      現在の個別plugin構成から `eslint-config-next` へ戻す（jsx-a11y / import ルールが復活する）。
+      ※上流（eslint-plugin-react）待ち。詳細は §4.2。
+
+### 4.2 フロントの ESLint 整備（**完了 2026-07-28**）
+
+`package.json` の `lint` スクリプトが `next lint` のままで、**Next 16 が同コマンドを廃止した
+ため壊れていた**（`Invalid project directory provided, no such directory: .../lint`）。
+さらに調べると **ESLint 自体も設定ファイルも入っておらず、このプロジェクトでは一度も
+lint が動いたことがなかった**（`create-next-app` の残骸）。CI は `typecheck` と `build` しか
+呼んでいなかったため気付かれていなかった。
+
+#### やったこと
+
+- `eslint.config.mjs`（flat config）を新規作成
+- `lint` を `eslint .` へ、`lint:fix` を追加
+- `ci.yml` のフロントジョブへ **Lint ステップを追加**（typecheck / build の前）
+
+#### `eslint-config-next` を使わなかった理由（重要）
+
+素直に入れるなら `eslint-config-next` だが、**採用できなかった**。
+
+| 組み合わせ | 結果 |
+|---|---|
+| ESLint 10 + `eslint-config-next` | **実行時に落ちる**。同梱の `eslint-plugin-react@7.37.5` の peer が `eslint ^9.7` までで、`contextOrFilename.getFilename is not a function` |
+| ESLint 9 + `eslint-config-next` | 動くが、**ESLint 9 本体が脆弱な `minimatch@3` を引き込み修正可能なHIGH脆弱性が9件増える**（HIGH 5→14）。`security-scan.yml` の Trivy ゲート（`--severity HIGH,CRITICAL --ignore-unfixed`）に当たる |
+| **ESLint 10 + 個別plugin** | **採用**。lint が動き、**脆弱性はベースラインと同数**（HIGH 5 + moderate 1、パッケージも同一） |
+
+構成: `@next/eslint-plugin-next`（Next固有ルール + core-web-vitals）／
+`eslint-plugin-react-hooks`（flat版。`configs.flat["recommended-latest"]`）／
+`typescript-eslint`（recommended）。
+
+**取りこぼす観点**: `eslint-plugin-jsx-a11y`（アクセシビリティ）、`eslint-plugin-import`（import順序）、
+`eslint-plugin-react`（hooks以外）。`eslint-plugin-react` の ESLint 10 対応待ちで、
+対応後は `eslint-config-next` へ戻す（§4.1 に残タスクとして起票）。
+
+> `brace-expansion` の脆弱性（`<=5.0.7`、修正は 5.0.8）を `overrides` で潰す案も試したが、
+> **5.x の CJS エクスポートが呼び出し可能な default ではなく `minimatch@3` が壊れた**
+> （`expand is not a function`）。1.x / 2.x に修正版が無いため、minimatch 3/5 に依存する
+> パッケージでは解消できない。
+
+#### 検証
+
+- 53ファイルを走査して**指摘0件**（既存コードは元から綺麗だった）
+- ルールが実際に発火することを故意の違反（`any` / 未使用変数）で確認し、非ゼロ終了も確認
+- `npm run lint` / `typecheck` / `build` すべて成功
+- `npm audit`: 導入前 HIGH 5 + moderate 1 → 導入後も **HIGH 5 + moderate 1**（同一パッケージ）
 - [x] **contract-first DTO自動生成 / swagger-ui**（§6.15）— 完了（§5.3）。
       swagger-ui（`/swagger-ui.html`）導入、フロント型を spec から生成（`npm run gen:api-types`）+ CI鮮度ゲート。
 - [x] **Java整形** — 完了（§5.3）。google/palantir は JDK 25 で javac 内部API非互換のため、
